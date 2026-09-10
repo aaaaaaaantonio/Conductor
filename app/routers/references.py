@@ -82,7 +82,11 @@ def stand_options_fragment(
     statement = (
         select(ReferenceItem)
         .join(TeamStandLink, TeamStandLink.stand_id == ReferenceItem.id)
-        .where(TeamStandLink.team_id == team_id, ReferenceItem.is_active == True)  # noqa: E712
+        .where(
+            TeamStandLink.team_id == team_id,
+            ReferenceItem.category == "stand",
+            ReferenceItem.is_active == True,  # noqa: E712
+        )
         .order_by(ReferenceItem.sort_order, ReferenceItem.value)
     )
     stands = list(session.exec(statement).all())
