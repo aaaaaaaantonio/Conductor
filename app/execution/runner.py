@@ -32,19 +32,32 @@ async def start_local_job(
         stderr=asyncio.subprocess.STDOUT,
     )
 
-    with log_path.open("w") as log_file:
-        assert process.stdout is not None
-        async for raw_line in process.stdout:
-            line = raw_line.decode().rstrip("\n")
-            log_file.write(line + "\n")
-            log_file.flush()
-            await broadcaster.publish({"type": "log-line", "job_id": job_id, "line": line})
+    try:
+        with log_path.open("w") as log_file:
+            assert process.stdout is not None
+            async for raw_line in process.stdout:
+                line = raw_line.decode(errors="replace").rstrip("\n")
+                log_file.write(line + "\n")
+                log_file.flush()
+                await broadcaster.publish({"type": "log-line", "job_id": job_id, "line": line})
 
-    return_code = await process.wait()
-    job.status = "success" if return_code == 0 else "failed"
-    session.add(job)
-    session.commit()
-    await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": job.status})
+        return_code = await process.wait()
+        job.status = "success" if return_code == 0 else "failed"
+    except Exception:
+        # Whatever went wrong (e.g. a decode error on non-UTF-8 output), the
+        # subprocess must still be reaped and the job must still land in a
+        # terminal state with a broadcast — otherwise the process can zombie
+        # and any UI waiting on job-status hangs forever with status stuck
+        # at "running".
+        job.status = "failed"
+        if process.returncode is None:
+            process.kill()
+        await process.wait()
+        raise
+    finally:
+        session.add(job)
+        session.commit()
+        await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": job.status})
 
 
 async def start_local_job_with_own_session(
