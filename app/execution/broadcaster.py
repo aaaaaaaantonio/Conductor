@@ -3,10 +3,10 @@ import asyncio
 
 class EventBroadcaster:
     def __init__(self) -> None:
-        self._subscribers: set[asyncio.Queue] = set()
+        self._subscribers: set[asyncio.Queue[dict]] = set()
 
     def subscribe(self) -> "asyncio.Queue[dict]":
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue[dict] = asyncio.Queue()
         self._subscribers.add(queue)
         return queue
 
