@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 
 from app.db import init_db
+from app.routers.references import router as references_router
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Test Runner Bot")
+    app.include_router(references_router)
 
     @app.on_event("startup")
     def on_startup() -> None:
