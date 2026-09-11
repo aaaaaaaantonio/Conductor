@@ -61,15 +61,26 @@ def _agent_test_to_dict(agent_test: AgentTest) -> dict:
     }
 
 
+def _encode_payload(payload: AgentTestPayload) -> tuple[str, str]:
+    flags_json = json.dumps([f.model_dump() for f in payload.flags])
+    fields_json = json.dumps([f.model_dump() for f in payload.fields])
+    return flags_json, fields_json
+
+
 @router.post("/api/agents/{agent_id}/tests", status_code=201)
 def create_agent_test(
     agent_id: int, payload: AgentTestPayload, session: Session = Depends(get_session)
 ) -> dict:
+    agent = session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    flags_json, fields_json = _encode_payload(payload)
     agent_test = AgentTest(
         agent_id=agent_id,
         path=payload.path,
-        flags_json=json.dumps([f.model_dump() for f in payload.flags]),
-        fields_json=json.dumps([f.model_dump() for f in payload.fields]),
+        flags_json=flags_json,
+        fields_json=fields_json,
     )
     session.add(agent_test)
     session.commit()
@@ -92,9 +103,10 @@ def update_agent_test(
     agent_test = session.get(AgentTest, test_id)
     if agent_test is None:
         raise HTTPException(status_code=404, detail="Not found")
+    flags_json, fields_json = _encode_payload(payload)
     agent_test.path = payload.path
-    agent_test.flags_json = json.dumps([f.model_dump() for f in payload.flags])
-    agent_test.fields_json = json.dumps([f.model_dump() for f in payload.fields])
+    agent_test.flags_json = flags_json
+    agent_test.fields_json = fields_json
     session.add(agent_test)
     session.commit()
     session.refresh(agent_test)
