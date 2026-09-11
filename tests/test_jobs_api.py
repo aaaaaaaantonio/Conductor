@@ -49,3 +49,18 @@ def test_python_launch_vm_mode_creates_job_and_returns_list_fragment(client, ses
     )
     assert resp.status_code == 200
     assert "job-" in resp.text
+
+
+def test_startup_marks_stale_running_jobs_failed(session):
+    from app.main import recover_stale_jobs
+    from app.models.jobs import Job
+
+    stale = Job(source="python", status="running", params_json="{}")
+    session.add(stale)
+    session.commit()
+    session.refresh(stale)
+
+    recover_stale_jobs(session)
+
+    session.refresh(stale)
+    assert stale.status == "failed"
