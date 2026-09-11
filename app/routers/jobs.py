@@ -42,8 +42,7 @@ async def stream_events() -> StreamingResponse:
             while True:
                 event = await queue.get()
                 yield f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
-        except asyncio.CancelledError:
+        finally:
             broadcaster.unsubscribe(queue)
-            raise
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
