@@ -10,7 +10,12 @@ async def trigger_build(
         f"{base_url}/job/{job_name}/buildWithParameters", params=params
     )
     response.raise_for_status()
-    return response.headers["Location"]
+    location = response.headers.get("Location")
+    if not location:
+        raise RuntimeError(
+            "Jenkins did not return a Location header for the queued build"
+        )
+    return location
 
 
 async def poll_build_status(
@@ -19,6 +24,13 @@ async def poll_build_status(
     response = await client.get(f"{build_url.rstrip('/')}/api/json")
     response.raise_for_status()
     data = response.json()
+    if "building" not in data:
+        raise RuntimeError(
+            f"Jenkins build status response is missing the 'building' field: {data!r}"
+        )
     if data["building"]:
         return "running"
-    return "success" if data["result"] == "SUCCESS" else "failed"
+    # `result` is null while `building` is False for states like an aborted
+    # or otherwise-incomplete build. Treat any non-"SUCCESS" result
+    # (including a missing/null one) as "failed".
+    return "success" if data.get("result") == "SUCCESS" else "failed"
