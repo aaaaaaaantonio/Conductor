@@ -1,8 +1,11 @@
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -11,8 +14,10 @@ from app.execution.command_builder import FieldSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
 from app.models.agent_testing import Agent, AgentTest
 from app.models.jobs import Job
+from app.models.reference import ReferenceItem
 
 router = APIRouter(tags=["agent-testing"])
+templates = Jinja2Templates(directory="app/templates")
 
 LOG_DIR = Path("job_logs")
 
@@ -147,3 +152,45 @@ async def launch_agent_test(
 
     background_tasks.add_task(start_local_job_with_own_session, job.id, command, LOG_DIR)
     return {"job_id": job.id}
+
+
+@router.get("/agent-testing", response_class=HTMLResponse)
+def agent_testing_page(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
+    teams = list(
+        session.exec(
+            select(ReferenceItem).where(
+                ReferenceItem.category == "team", ReferenceItem.is_active == True  # noqa: E712
+            )
+        ).all()
+    )
+    agents = list(session.exec(select(Agent)).all())
+    tests = list(session.exec(select(AgentTest)).all())
+
+    agents_by_team: dict[int, list[Agent]] = defaultdict(list)
+    for a in agents:
+        agents_by_team[a.team_id].append(a)
+
+    tests_by_agent: dict[int, list[AgentTest]] = defaultdict(list)
+    for t in tests:
+        tests_by_agent[t.agent_id].append(t)
+
+    return templates.TemplateResponse(
+        request,
+        "agent_testing.html",
+        {"teams": teams, "agents_by_team": agents_by_team, "tests_by_agent": tests_by_agent},
+    )
+
+
+@router.get("/agent-testing/tests/{test_id}/fragments/card", response_class=HTMLResponse)
+def agent_test_card_fragment(
+    request: Request, test_id: int, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    agent_test = session.get(AgentTest, test_id)
+    if agent_test is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    data = _agent_test_to_dict(agent_test)
+    return templates.TemplateResponse(
+        request,
+        "fragments/agent_test_card.html",
+        {"test": data},
+    )

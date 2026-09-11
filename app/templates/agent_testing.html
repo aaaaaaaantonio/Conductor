@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Тестирование агентов</h2>
+<div style="display:flex;gap:16px" hx-ext="sse" sse-connect="/jobs/stream">
+  <div style="width:220px">
+    {% for team in teams %}
+      <div>{{ team.value }}</div>
+      {% for agent in agents_by_team.get(team.id, []) %}
+        <div style="padding-left:8px">
+          {{ agent.name }}
+          {% for test in tests_by_agent.get(agent.id, []) %}
+            <div style="padding-left:8px">
+              <a href="#" hx-get="/agent-testing/tests/{{ test.id }}/fragments/card" hx-target="#test-card">{{ test.path }}</a>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+  <div id="test-card" style="flex:1"></div>
+  <div style="flex:1">
+    <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
+    <div id="job-log" sse-swap="log-line" hx-swap="beforeend"></div>
+  </div>
+</div>
+{% endblock %}

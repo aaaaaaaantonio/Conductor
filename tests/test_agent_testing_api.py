@@ -131,3 +131,9 @@ def test_list_agents_by_team(client):
     listed_b = client.get("/api/agents", params={"team_id": team_b["id"]})
     assert listed_b.status_code == 200
     assert listed_b.json() == []
+
+
+def test_agent_testing_page_renders(client):
+    resp = client.get("/agent-testing")
+    assert resp.status_code == 200
+    assert "Тестирование агентов" in resp.text

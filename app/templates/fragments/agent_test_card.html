@@ -1,0 +1,21 @@
+<div>
+  <h3>{{ test.path }}</h3>
+  <table>
+    {% for flag in test.flags %}
+      {% include "fragments/flag_row.html" %}
+    {% endfor %}
+  </table>
+  <table>
+    {% for field in test.fields %}
+      {% include "fragments/field_row.html" %}
+    {% endfor %}
+  </table>
+  <form hx-post="/api/agent-tests/{{ test.id }}/launch" hx-target="#job-list" hx-swap="outerHTML">
+    {% for field in test.fields %}
+      <label>{{ field.label }}
+        <input name="{{ field.flag_name }}" type="{{ 'checkbox' if field.type == 'checkbox' else 'text' }}" {{ 'required' if field.required }}>
+      </label>
+    {% endfor %}
+    <button type="submit">Запустить</button>
+  </form>
+</div>
