@@ -28,3 +28,24 @@ def test_job_log_fragment_returns_log_contents(client, session, tmp_path):
     assert resp.status_code == 200
     assert "line one" in resp.text
     assert "line two" in resp.text
+
+
+def test_python_launch_vm_mode_creates_job_and_returns_list_fragment(client, session):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
+    test_type = client.post(
+        "/api/references", json={"category": "test_type", "value": "Регресс"}
+    ).json()
+
+    resp = client.post(
+        "/python/launch",
+        data={
+            "team_id": team["id"],
+            "stand_id": stand["id"],
+            "test_type_id": test_type["id"],
+            "regression_type": "regression",
+            "execution_mode": "vm",
+        },
+    )
+    assert resp.status_code == 200
+    assert "job-" in resp.text
