@@ -41,6 +41,7 @@ def create_reference_item(
         select(ReferenceItem).where(
             ReferenceItem.category == item.category,
             ReferenceItem.value == item.value,
+            ReferenceItem.parent_id == item.parent_id,
             ReferenceItem.is_active == True,  # noqa: E712
         )
     ).first()

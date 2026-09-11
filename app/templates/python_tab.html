@@ -2,7 +2,7 @@
 {% block content %}
 <div style="display:flex;gap:16px" hx-ext="sse" sse-connect="/jobs/stream">
   <div style="width:300px">
-    <form hx-post="/python/launch" hx-target="#job-list" hx-swap="outerHTML">
+    <form hx-post="/python/launch" hx-target="#job-list" hx-swap="innerHTML">
       <select name="team_id" id="team-select">
         {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
       </select>
@@ -11,7 +11,7 @@
         name="stand_id"
         hx-get="/api/references/fragments/stands"
         hx-include="#team-select"
-        hx-trigger="change from:#team-select"
+        hx-trigger="load, change from:#team-select"
       ></select>
       <select name="test_type_id">
         {% for tt in test_types %}<option value="{{ tt.id }}">{{ tt.value }}</option>{% endfor %}
@@ -29,14 +29,14 @@
         name="test_name_id"
         hx-get="/api/references/fragments/test-names"
         hx-include="#team-select"
-        hx-trigger="change from:#team-select"
+        hx-trigger="load, change from:#team-select"
       ></select>
       <select
         id="dataset-select"
         name="dataset_id"
         hx-get="/api/references/fragments/datasets"
         hx-include="#test-name-select"
-        hx-trigger="change from:#test-name-select"
+        hx-trigger="htmx:afterSwap from:#test-name-select"
       ></select>
       <button type="submit">Запустить</button>
     </form>

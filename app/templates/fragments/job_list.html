@@ -1,7 +1,5 @@
-<div id="job-list" hx-swap-oob="true">
 {% for job in jobs %}
   <div id="job-{{ job.id }}" class="job-chip" data-status="{{ job.status }}">
     job #{{ job.id }} · {{ job.status }}
   </div>
 {% endfor %}
-</div>

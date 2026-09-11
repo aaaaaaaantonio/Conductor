@@ -13,7 +13,7 @@
   <form id="launch-form-{{ test.id }}" data-launch-url="/api/agent-tests/{{ test.id }}/launch">
     {% for field in test.fields %}
       <label>{{ field.label }}
-        <input name="{{ field.flag_name }}" type="{{ 'checkbox' if field.type == 'checkbox' else 'text' }}" {{ 'required' if field.required }}>
+        <input name="{{ field.flag_name }}" type="{{ 'checkbox' if field.type == 'checkbox' else 'text' }}" {{ 'required' if field.required and field.type != 'checkbox' }}>
       </label>
     {% endfor %}
     <button type="submit">Запустить</button>
@@ -41,9 +41,19 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ values: values }),
     }).then(function (resp) {
-      if (resp.ok && window.htmx) {
-        htmx.ajax("GET", "/jobs/fragments/list", { target: "#job-list", swap: "outerHTML" });
+      if (resp.ok) {
+        if (window.htmx) {
+          htmx.ajax("GET", "/jobs/fragments/list", { target: "#job-list", swap: "innerHTML" });
+        }
+        return;
       }
+      resp.json().then(function (body) {
+        alert((body && body.detail) || "Launch failed (" + resp.status + ")");
+      }).catch(function () {
+        alert("Launch failed (" + resp.status + ")");
+      });
+    }).catch(function (err) {
+      alert("Launch failed: " + err);
     });
   });
 })();

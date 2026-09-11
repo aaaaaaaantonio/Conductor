@@ -24,6 +24,32 @@ def test_create_list_and_soft_delete_reference_item(client):
     assert resp.json() == []
 
 
+def test_duplicate_test_name_allowed_across_different_parent_teams(client):
+    team_a = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    team_b = client.post("/api/references", json={"category": "team", "value": "QA-Frontend"}).json()
+
+    resp_a = client.post(
+        "/api/references",
+        json={"category": "test_name", "value": "test_login_flow", "parent_id": team_a["id"]},
+    )
+    assert resp_a.status_code == 201
+
+    # Same value, different parent team — must not be rejected as a
+    # duplicate, since test_name is scoped per-team via parent_id.
+    resp_b = client.post(
+        "/api/references",
+        json={"category": "test_name", "value": "test_login_flow", "parent_id": team_b["id"]},
+    )
+    assert resp_b.status_code == 201
+
+    # A true duplicate within the same team is still rejected.
+    dup = client.post(
+        "/api/references",
+        json={"category": "test_name", "value": "test_login_flow", "parent_id": team_a["id"]},
+    )
+    assert dup.status_code == 409
+
+
 def test_cascading_stand_and_test_name_fragments(client):
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
     stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()

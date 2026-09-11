@@ -1,4 +1,5 @@
 import asyncio
+import html
 import json
 from pathlib import Path
 
@@ -41,7 +42,18 @@ async def stream_events() -> StreamingResponse:
         try:
             while True:
                 event = await queue.get()
-                yield f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+                if event["type"] == "log-line":
+                    # sse-swap="log-line" appends this data verbatim as HTML
+                    # (hx-swap="beforeend") — render a single escaped,
+                    # job-labeled line instead of raw event JSON. SSE `data:`
+                    # fields can't contain literal newlines, so collapse any
+                    # embedded ones first.
+                    job_id = event["job_id"]
+                    line = event["line"].replace("\r", "").replace("\n", " ")
+                    data = f'<div data-job="{job_id}">[job {job_id}] {html.escape(line)}</div>'
+                else:
+                    data = json.dumps(event)
+                yield f"event: {event['type']}\ndata: {data}\n\n"
         finally:
             broadcaster.unsubscribe(queue)
 
