@@ -26,13 +26,15 @@ async def start_local_job(
     session.commit()
     await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": "running"})
 
-    process = await asyncio.create_subprocess_exec(
-        *command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-    )
+    process: asyncio.subprocess.Process | None = None
 
     try:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+
         with log_path.open("w") as log_file:
             assert process.stdout is not None
             async for raw_line in process.stdout:
@@ -43,17 +45,27 @@ async def start_local_job(
 
         return_code = await process.wait()
         job.status = "success" if return_code == 0 else "failed"
-    except Exception:
-        # Whatever went wrong (e.g. a decode error on non-UTF-8 output), the
-        # subprocess must still be reaped and the job must still land in a
-        # terminal state with a broadcast — otherwise the process can zombie
-        # and any UI waiting on job-status hangs forever with status stuck
-        # at "running".
+    except Exception as exc:
+        # Whatever went wrong, the job must still land in a terminal state
+        # with a broadcast — otherwise any UI waiting on job-status hangs
+        # forever with status stuck at "running".
         job.status = "failed"
-        if process.returncode is None:
-            process.kill()
-        await process.wait()
-        raise
+        if process is None:
+            # The subprocess never started at all (e.g. `command[0]` is not
+            # a valid executable — a bad path, insufficient host/agent
+            # availability, etc.). There's no process to reap, but the
+            # failure must still be visible in the job's log rather than
+            # silently lost.
+            with log_path.open("w") as log_file:
+                log_file.write(f"Failed to start process: {exc}\n")
+        else:
+            # The subprocess started but something went wrong while
+            # streaming its output (e.g. a decode error on non-UTF-8
+            # output). It must still be reaped so it doesn't zombie.
+            if process.returncode is None:
+                process.kill()
+            await process.wait()
+            raise
     finally:
         session.add(job)
         session.commit()
