@@ -466,17 +466,23 @@ Expected: FAIL — 404 on `/api/references/team-stand-links`
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from app.models.reference import TeamStandLink
 
 templates = Jinja2Templates(directory="app/templates")
 
 
+class TeamStandLinkRequest(BaseModel):
+    team_id: int
+    stand_id: int
+
+
 @router.post("/team-stand-links", status_code=204)
 def link_team_stand(
-    team_id: int, stand_id: int, session: Session = Depends(get_session)
+    payload: TeamStandLinkRequest, session: Session = Depends(get_session)
 ) -> Response:
-    session.add(TeamStandLink(team_id=team_id, stand_id=stand_id))
+    session.add(TeamStandLink(team_id=payload.team_id, stand_id=payload.stand_id))
     session.commit()
     return Response(status_code=204)
 
@@ -533,27 +539,6 @@ def dataset_options_fragment(
     return templates.TemplateResponse(
         request, "fragments/dataset_options.html", {"datasets": datasets}
     )
-```
-
-Note: `post` handlers above take `team_id`/`stand_id` as query params implicitly via Pydantic body — to match the test's `json={...}` body, declare a small inline model:
-
-```python
-# app/routers/references.py (add near top, use in link_team_stand instead of bare params)
-from pydantic import BaseModel
-
-
-class TeamStandLinkRequest(BaseModel):
-    team_id: int
-    stand_id: int
-
-
-@router.post("/team-stand-links", status_code=204)
-def link_team_stand(
-    payload: TeamStandLinkRequest, session: Session = Depends(get_session)
-) -> Response:
-    session.add(TeamStandLink(team_id=payload.team_id, stand_id=payload.stand_id))
-    session.commit()
-    return Response(status_code=204)
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1787,7 +1772,13 @@ from fastapi.staticfiles import StaticFiles
 from app.routers.launch_python import router as launch_python_router
 ...
     app.include_router(launch_python_router)
-    app.mount("/static", StaticFiles(directory="app/static"), name="static")
+    # check_dir=False: the real htmx.min.js/sse.js assets are fetched as a
+    # manual deploy step (see below), so this directory may not exist yet
+    # when tests construct the app — a missing directory must not crash
+    # app startup.
+    app.mount(
+        "/static", StaticFiles(directory="app/static", check_dir=False), name="static"
+    )
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1812,7 +1803,8 @@ git commit -m "feat: Python-tab launch form with cascading dropdowns and live jo
 - Create: `app/templates/agent_testing.html`
 - Create: `app/templates/fragments/flag_row.html`
 - Create: `app/templates/fragments/field_row.html`
-- Modify: `app/routers/agent_testing.py` — add page route
+- Create: `app/templates/fragments/agent_test_card.html`
+- Modify: `app/routers/agent_testing.py` — add page route and card-fragment route
 - Test: `tests/test_agent_testing_api.py`
 
 **Interfaces:**
