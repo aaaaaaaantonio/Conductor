@@ -1,14 +1,20 @@
 import json
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.execution.command_builder import FieldSpec, build_command
+from app.execution.runner import start_local_job_with_own_session
 from app.models.agent_testing import Agent, AgentTest
+from app.models.jobs import Job
 
 router = APIRouter(tags=["agent-testing"])
+
+LOG_DIR = Path("job_logs")
 
 
 class AgentCreateRequest(BaseModel):
@@ -111,3 +117,33 @@ def update_agent_test(
     session.commit()
     session.refresh(agent_test)
     return _agent_test_to_dict(agent_test)
+
+
+class LaunchRequest(BaseModel):
+    values: dict
+
+
+@router.post("/api/agent-tests/{test_id}/launch", status_code=202)
+async def launch_agent_test(
+    test_id: int,
+    payload: LaunchRequest,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+) -> dict:
+    agent_test = session.get(AgentTest, test_id)
+    if agent_test is None:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    fields = [FieldSpec(**f) for f in json.loads(agent_test.fields_json)]
+    try:
+        command = build_command(agent_test.path, fields, payload.values)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    job = Job(source="agent_test", status="queued", params_json=json.dumps(payload.values))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    background_tasks.add_task(start_local_job_with_own_session, job.id, command, LOG_DIR)
+    return {"job_id": job.id}

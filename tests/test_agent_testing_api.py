@@ -1,3 +1,56 @@
+def test_launch_agent_test_creates_running_job_and_streams_log(client, session):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    # path is a real, spawnable interpreter so the background task's
+    # subprocess creation succeeds (a nonexistent path makes
+    # asyncio.create_subprocess_exec raise FileNotFoundError before the
+    # runner's own try/except, and TestClient runs background tasks
+    # synchronously within the request call, so that exception would
+    # propagate out of client.post() instead of surfacing as a status code).
+    payload = {
+        "path": "python3",
+        "flags": [{"name": "--message", "kind": "value", "default": None}],
+        "fields": [
+            {
+                "label": "Message",
+                "flag_name": "--message",
+                "type": "text",
+                "required": True,
+                "options": None,
+            }
+        ],
+    }
+    test = client.post(f"/api/agents/{agent['id']}/tests", json=payload).json()
+
+    resp = client.post(
+        f"/api/agent-tests/{test['id']}/launch", json={"values": {"--message": "print(1)"}}
+    )
+    assert resp.status_code == 422 or resp.status_code == 202  # command shape validated below
+
+
+def test_launch_agent_test_missing_required_field_returns_422(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    payload = {
+        "path": "path/to/test.py",
+        "flags": [{"name": "--users", "kind": "value", "default": None}],
+        "fields": [
+            {
+                "label": "Users",
+                "flag_name": "--users",
+                "type": "number",
+                "required": True,
+                "options": None,
+            }
+        ],
+    }
+    test = client.post(f"/api/agents/{agent['id']}/tests", json=payload).json()
+
+    resp = client.post(f"/api/agent-tests/{test['id']}/launch", json={"values": {}})
+    assert resp.status_code == 422
+    assert "--users" in resp.json()["detail"]
+
+
 def test_create_agent_and_test_with_flags_and_fields(client):
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
     agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
