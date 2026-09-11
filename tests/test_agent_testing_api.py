@@ -137,3 +137,45 @@ def test_agent_testing_page_renders(client):
     resp = client.get("/agent-testing")
     assert resp.status_code == 200
     assert "Тестирование агентов" in resp.text
+
+
+def test_launch_via_card_form_json_shape_succeeds_with_unchecked_checkbox(client, session):
+    # Exercises the launch endpoint the way agent_test_card.html's submit
+    # handler calls it: a JSON body shaped {"values": {...}}, with an
+    # unchecked checkbox field explicitly present as `false` (matching the
+    # `el.type === "checkbox" ? el.checked : el.value` logic in the
+    # template's inline script) rather than omitted, as native
+    # form-urlencoded serialization would do.
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    payload = {
+        "path": "python3",
+        "flags": [
+            {"name": "--message", "kind": "value", "default": None},
+            {"name": "--verbose", "kind": "bool", "default": None},
+        ],
+        "fields": [
+            {
+                "label": "Message",
+                "flag_name": "--message",
+                "type": "text",
+                "required": True,
+                "options": None,
+            },
+            {
+                "label": "Verbose",
+                "flag_name": "--verbose",
+                "type": "checkbox",
+                "required": False,
+                "options": None,
+            },
+        ],
+    }
+    test = client.post(f"/api/agents/{agent['id']}/tests", json=payload).json()
+
+    resp = client.post(
+        f"/api/agent-tests/{test['id']}/launch",
+        json={"values": {"--message": "hello", "--verbose": False}},
+    )
+    assert resp.status_code == 202
+    assert "job_id" in resp.json()
