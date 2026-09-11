@@ -1,0 +1,57 @@
+<h2>Форма запуска — вкладка Python</h2>
+<p class="subtitle">Каскадные справочники: Команда → Стенд, Команда → Название теста → Датасет</p>
+
+<div class="mockup">
+  <div class="mockup-header">Запуск теста</div>
+  <div class="mockup-body">
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:420px">
+      <div>
+        <div class="label">Команда</div>
+        <select class="mock-input"><option>QA-Backend</option></select>
+      </div>
+      <div>
+        <div class="label">Стенд</div>
+        <select class="mock-input"><option>stage-1</option><option>stage-2</option></select>
+        <div class="subtitle" style="margin-top:2px">список зависит от выбранной Команды</div>
+      </div>
+      <div>
+        <div class="label">Тип теста</div>
+        <select class="mock-input"><option>Регресс</option><option>Смоук</option></select>
+      </div>
+      <div>
+        <div class="label">Регресс / НФ</div>
+        <select class="mock-input"><option>Регресс</option><option>НФ</option></select>
+      </div>
+      <hr style="border-color:#333;margin:6px 0">
+      <div>
+        <div class="label">Режим запуска</div>
+        <div class="options" style="margin:0">
+          <div class="option" data-choice="jenkins" onclick="toggleSelect(this)"><div class="content"><h3>Jenkins</h3></div></div>
+          <div class="option" data-choice="vm" onclick="toggleSelect(this)"><div class="content"><h3>VM-агент</h3></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="label">Название теста</div>
+        <select class="mock-input"><option>test_login_flow</option><option>test_checkout</option></select>
+        <div class="subtitle" style="margin-top:2px">список зависит от выбранной Команды</div>
+      </div>
+      <div>
+        <div class="label">Датасет</div>
+        <select class="mock-input"><option>dataset_default</option><option>dataset_edge_cases</option></select>
+        <div class="subtitle" style="margin-top:2px">список зависит от выбранного Названия теста</div>
+      </div>
+      <button class="mock-button" style="margin-top:8px">Запустить</button>
+    </div>
+
+    <div style="margin-top:20px">
+      <div class="label">Проверка и управление</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="mock-input" placeholder="ID процесса / сборки Jenkins" style="flex:1;min-width:180px">
+        <button class="mock-button">Проверить</button>
+        <button class="mock-button">Перезапуск</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">Каскад: смена Команды сбрасывает Стенд и Название теста на первый доступный вариант; смена Названия теста сбрасывает Датасет.</p>

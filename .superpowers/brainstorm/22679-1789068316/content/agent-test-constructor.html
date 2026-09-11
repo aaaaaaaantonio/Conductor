@@ -1,0 +1,61 @@
+<h2>Тестирование агентов — конструктор Теста</h2>
+<p class="subtitle">Команда → Агент → Тест. Карточка Теста: путь + флаги + поля формы</p>
+
+<div class="mockup">
+  <div class="mockup-header">Дерево слева, карточка Теста справа</div>
+  <div class="mockup-body" style="display:flex;gap:16px;align-items:flex-start">
+
+    <div class="mock-sidebar" style="width:220px;flex:0 0 220px;font-size:13px">
+      <div class="label">QA-Backend</div>
+      <div style="padding-left:8px">
+        <div class="label" style="margin-top:6px">Агент: agent-01</div>
+        <div class="placeholder" style="padding:4px 8px;margin:2px 0">test_login_flow</div>
+        <div class="placeholder" style="padding:4px 8px;margin:2px 0;border:1px solid #4a9eff">test_checkout ✎</div>
+        <div class="placeholder" style="padding:4px 8px;margin:2px 0;opacity:.6">+ новый тест</div>
+        <div class="label" style="margin-top:10px">Агент: agent-02</div>
+        <div class="placeholder" style="padding:4px 8px;margin:2px 0;opacity:.6">+ новый тест</div>
+      </div>
+      <div class="placeholder" style="margin-top:10px;opacity:.6">+ новый агент</div>
+    </div>
+
+    <div class="mock-content" style="flex:1">
+      <div class="label">Карточка теста: test_checkout</div>
+
+      <div style="margin:8px 0">
+        <div class="label">Путь до скрипта</div>
+        <input class="mock-input" value="tests/checkout/test_checkout.py" style="width:100%">
+      </div>
+
+      <div style="margin:8px 0">
+        <div class="label">Флаги запуска</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <tr style="text-align:left;opacity:.6"><th>Флаг</th><th>Тип</th><th>Значение по умолчанию</th><th></th></tr>
+          <tr><td><code>--verbose</code></td><td>булевый</td><td>—</td><td>✕</td></tr>
+          <tr><td><code>--timeout</code></td><td>со значением</td><td>300</td><td>✕</td></tr>
+          <tr><td><code>--users</code></td><td>со значением</td><td>—</td><td>✕</td></tr>
+        </table>
+        <div class="placeholder" style="margin-top:4px;padding:4px 8px;opacity:.6;display:inline-block">+ флаг</div>
+      </div>
+
+      <div style="margin:8px 0">
+        <div class="label">Поля формы (конструктор)</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <tr style="text-align:left;opacity:.6"><th>Название поля</th><th>Тип</th><th>Флаг</th><th>Обяз.</th><th></th></tr>
+          <tr><td>Количество пользователей</td><td>число</td><td><code>--users</code></td><td>да</td><td>✕</td></tr>
+          <tr><td>Подробный вывод</td><td>чекбокс</td><td><code>--verbose</code></td><td>нет</td><td>✕</td></tr>
+          <tr><td>Таймаут, сек</td><td>число</td><td><code>--timeout</code></td><td>нет</td><td>✕</td></tr>
+        </table>
+        <div class="placeholder" style="margin-top:4px;padding:4px 8px;opacity:.6;display:inline-block">+ поле</div>
+        <div class="subtitle" style="margin-top:4px">порядок строк = порядок флагов в итоговой команде</div>
+      </div>
+
+      <div style="background:#0d0d0d;border:1px solid #333;border-radius:4px;padding:8px;font-family:monospace;font-size:12px;margin-top:10px">
+        tests/checkout/test_checkout.py --users=25 --timeout=300
+      </div>
+      <div class="subtitle">превью итоговой команды — обновляется live по мере заполнения полей</div>
+
+      <button class="mock-button" style="margin-top:10px">Сохранить карточку</button>
+    </div>
+
+  </div>
+</div>

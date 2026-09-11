@@ -1,0 +1,71 @@
+<h2>Форма запуска — вкладка Python</h2>
+<p class="subtitle">Форма слева, центр — вывод логов/статуса (SSE-стрим)</p>
+
+<div class="mockup">
+  <div class="mockup-header">Layout: sidebar + main</div>
+  <div class="mockup-body" style="display:flex;gap:16px;align-items:flex-start">
+
+    <div class="mock-sidebar" style="width:300px;flex:0 0 300px">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div class="label">Команда</div>
+          <select class="mock-input"><option>QA-Backend</option></select>
+        </div>
+        <div>
+          <div class="label">Стенд</div>
+          <select class="mock-input"><option>stage-1</option></select>
+        </div>
+        <div>
+          <div class="label">Тип теста</div>
+          <select class="mock-input"><option>Регресс</option></select>
+        </div>
+        <div>
+          <div class="label">Регресс / НФ</div>
+          <select class="mock-input"><option>Регресс</option></select>
+        </div>
+        <hr style="border-color:#333;margin:4px 0">
+        <div>
+          <div class="label">Режим запуска</div>
+          <div class="options" style="margin:0">
+            <div class="option" data-choice="jenkins" onclick="toggleSelect(this)"><div class="content"><h3 style="font-size:13px">Jenkins</h3></div></div>
+            <div class="option" data-choice="vm" onclick="toggleSelect(this)"><div class="content"><h3 style="font-size:13px">VM-агент</h3></div></div>
+          </div>
+        </div>
+        <div>
+          <div class="label">Название теста</div>
+          <select class="mock-input"><option>test_login_flow</option></select>
+        </div>
+        <div>
+          <div class="label">Датасет</div>
+          <select class="mock-input"><option>dataset_default</option></select>
+        </div>
+        <button class="mock-button" style="margin-top:6px">Запустить</button>
+        <hr style="border-color:#333;margin:4px 0">
+        <div class="label">Проверка и управление</div>
+        <input class="mock-input" placeholder="ID процесса / сборки">
+        <div style="display:flex;gap:6px">
+          <button class="mock-button" style="flex:1">Проверить</button>
+          <button class="mock-button" style="flex:1">Перезапуск</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock-content" style="flex:1;min-height:420px;display:flex;flex-direction:column">
+      <div class="label">Активные запуски</div>
+      <div style="display:flex;gap:6px;margin:4px 0">
+        <div class="placeholder" style="padding:4px 10px;font-size:12px">job #142 · running</div>
+        <div class="placeholder" style="padding:4px 10px;font-size:12px">job #141 · success</div>
+      </div>
+      <div style="background:#0d0d0d;border:1px solid #333;border-radius:4px;padding:10px;flex:1;font-family:monospace;font-size:12px;line-height:1.5;overflow:auto">
+        <div>[12:03:10] INFO  starting test_login_flow on stage-1</div>
+        <div>[12:03:11] INFO  dataset=dataset_default loaded</div>
+        <div>[12:03:14] PASS  test_login_flow::test_valid_credentials</div>
+        <div>[12:03:16] PASS  test_login_flow::test_invalid_password</div>
+        <div style="opacity:.5">[12:03:18] ...streaming (SSE)...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p class="subtitle">Центр — тянущийся список job'ов сверху (табы/чипы) + живой лог выбранного job'а снизу. Тут же со временем графики/отчёты.</p>
