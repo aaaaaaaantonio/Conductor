@@ -1,3 +1,5 @@
 .superpowers/
 __pycache__/
 *.pyc
+test_runner.db
+job_logs/
