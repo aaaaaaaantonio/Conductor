@@ -1,49 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="display:flex;gap:16px" hx-ext="sse" sse-connect="/jobs/stream">
-  <div style="width:300px">
-    <form hx-post="/python/launch" hx-target="#job-list" hx-swap="innerHTML">
-      <select name="team_id" id="team-select">
-        {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
-      </select>
-      <select
-        id="stand-select"
-        name="stand_id"
-        hx-get="/api/references/fragments/stands"
-        hx-include="#team-select"
-        hx-trigger="load, change from:#team-select"
-      ></select>
-      <select name="test_type_id">
-        {% for tt in test_types %}<option value="{{ tt.id }}">{{ tt.value }}</option>{% endfor %}
-      </select>
-      <select name="regression_type">
-        <option value="regression">Регресс</option>
-        <option value="nfr">НФ</option>
-      </select>
-      <select name="execution_mode">
-        <option value="jenkins">Jenkins</option>
-        <option value="vm">VM-агент</option>
-      </select>
-      <select
-        id="test-name-select"
-        name="test_name_id"
-        hx-get="/api/references/fragments/test-names"
-        hx-include="#team-select"
-        hx-trigger="load, change from:#team-select"
-      ></select>
-      <select
-        id="dataset-select"
-        name="dataset_id"
-        hx-get="/api/references/fragments/datasets"
-        hx-include="#test-name-select"
-        hx-trigger="htmx:afterSwap from:#test-name-select"
-      ></select>
-      <button type="submit">Запустить</button>
+<div class="layout python" hx-ext="sse" sse-connect="/jobs/stream">
+  <div class="panel">
+    <h2>Параметры запуска</h2>
+    <form hx-post="/python/launch" hx-target="#job-list" hx-swap="innerHTML" hx-disabled-elt="#p-submit">
+      <div class="field">
+        <label for="team-select">Команда</label>
+        <select name="team_id" id="team-select">
+          {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="stand-select">Стенд</label>
+        <select
+          id="stand-select"
+          name="stand_id"
+          hx-get="/api/references/fragments/stands"
+          hx-include="#team-select"
+          hx-trigger="load, change from:#team-select"
+        ></select>
+      </div>
+      <div class="field">
+        <label for="regtype-select">Вид прогона</label>
+        <select id="regtype-select" name="regression_type">
+          <option value="regression">Регресс</option>
+          <option value="nfr">НФ</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="mode-select">Режим</label>
+        <select id="mode-select" name="execution_mode">
+          <option value="jenkins">Jenkins</option>
+          <option value="vm">VM-агент</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="test-name-select">Имя теста</label>
+        <select
+          id="test-name-select"
+          name="test_name_id"
+          hx-get="/api/references/fragments/test-names"
+          hx-include="#team-select"
+          hx-trigger="load, change from:#team-select"
+        ></select>
+      </div>
+      <div class="field">
+        <label for="dataset-select">Датасет</label>
+        <select
+          id="dataset-select"
+          name="dataset_id"
+          hx-get="/api/references/fragments/datasets"
+          hx-include="#test-name-select"
+          hx-trigger="htmx:afterSwap from:#test-name-select"
+        ></select>
+      </div>
+      <button class="btn-primary" id="p-submit" type="submit">Запустить</button>
     </form>
   </div>
-  <div style="flex:1">
+
+  <div class="panel log-panel">
+    <h2>Лог</h2>
+    <div id="job-log-body">
+      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу справа, чтобы увидеть лог</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Активные джобы</h2>
     <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
-    <div id="job-log" sse-swap="log-line" hx-swap="beforeend"></div>
   </div>
 </div>
 {% endblock %}

@@ -3,10 +3,21 @@
 <head>
   <meta charset="utf-8">
   <title>Test Runner Bot</title>
+  <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
   <script src="/static/sse.js"></script>
 </head>
 <body>
-  {% block content %}{% endblock %}
+  <div class="wrap">
+    <div class="appbar">
+      <h1>Test Runner Bot</h1>
+      <nav class="tabs">
+        <a href="/python" class="{{ 'active' if request.url.path == '/python' else '' }}">Python-таб</a>
+        <a href="/agent-testing" class="{{ 'active' if request.url.path == '/agent-testing' else '' }}">Тестирование агентов</a>
+      </nav>
+    </div>
+    {% block content %}{% endblock %}
+  </div>
+  <script src="/static/app.js"></script>
 </body>
 </html>

@@ -31,7 +31,9 @@ def job_log_fragment(
     lines: list[str] = []
     if job is not None and job.log_path is not None and Path(job.log_path).exists():
         lines = Path(job.log_path).read_text().splitlines()
-    return templates.TemplateResponse(request, "fragments/job_log.html", {"lines": lines})
+    return templates.TemplateResponse(
+        request, "fragments/job_log.html", {"lines": lines, "job": job}
+    )
 
 
 @router.get("/stream")

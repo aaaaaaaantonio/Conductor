@@ -1,26 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Тестирование агентов</h2>
-<div style="display:flex;gap:16px" hx-ext="sse" sse-connect="/jobs/stream">
-  <div style="width:220px">
+<div class="layout agents" hx-ext="sse" sse-connect="/jobs/stream">
+  <div class="panel">
+    <h2>Команды и тесты</h2>
     {% for team in teams %}
-      <div>{{ team.value }}</div>
-      {% for agent in agents_by_team.get(team.id, []) %}
-        <div style="padding-left:8px">
-          {{ agent.name }}
-          {% for test in tests_by_agent.get(agent.id, []) %}
-            <div style="padding-left:8px">
-              <a href="#" hx-get="/agent-testing/tests/{{ test.id }}/fragments/card" hx-target="#test-card">{{ test.path }}</a>
-            </div>
-          {% endfor %}
+      <div class="team-group{% if loop.first %} open{% endif %}">
+        <button type="button" class="team-toggle"><span class="chevron">▸</span>{{ team.value }}</button>
+        <div class="team-body">
+          <div class="team-body-inner">
+            {% for agent in agents_by_team.get(team.id, []) %}
+              <div class="tree-agent">{{ agent.name }}</div>
+              {% for test in tests_by_agent.get(agent.id, []) %}
+                <a class="tree-test" href="#" hx-get="/agent-testing/tests/{{ test.id }}/fragments/card" hx-target="#modal-body" hx-swap="innerHTML">{{ test.path }}</a>
+              {% endfor %}
+            {% endfor %}
+          </div>
         </div>
-      {% endfor %}
+      </div>
     {% endfor %}
   </div>
-  <div id="test-card" style="flex:1"></div>
-  <div style="flex:1">
+
+  <div class="panel log-panel">
+    <h2>Лог</h2>
+    <div id="job-log-body">
+      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу справа, чтобы увидеть лог</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Активные джобы</h2>
     <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
-    <div id="job-log" sse-swap="log-line" hx-swap="beforeend"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="test-modal">
+  <div class="modal-dialog" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <span class="modal-eyebrow">Запуск теста</span>
+      <button class="modal-close" type="button" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="empty-card">Выберите тест слева</div>
+    </div>
   </div>
 </div>
 {% endblock %}

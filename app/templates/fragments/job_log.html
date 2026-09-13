@@ -1,5 +1,12 @@
-<div id="job-log">
-{% for line in lines %}
-<div>{{ line }}</div>
-{% endfor %}
+{% if job %}
+  {% set status_cls = 'run' if job.status == 'running' else ('ok' if job.status == 'success' else ('fail' if job.status == 'failed' else '')) %}
+  <div class="log-head">
+    <span class="dot {{ status_cls }}"></span>
+    <span class="job-name">job #{{ job.id }} · {{ job.source }}</span>
+    <span class="job-id">{{ job.status }}</span>
+  </div>
+{% endif %}
+<div class="log" data-job="{{ job.id if job else '' }}">
+{% for line in lines %}<div><span class="ln">{{ loop.index }}</span>{{ line }}</div>{% endfor %}
+{% if not lines %}<div class="log-empty-hint">Лог пока пуст</div>{% endif %}
 </div>

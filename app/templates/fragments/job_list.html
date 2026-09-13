@@ -1,5 +1,25 @@
-{% for job in jobs %}
-  <div id="job-{{ job.id }}" class="job-chip" data-status="{{ job.status }}">
-    job #{{ job.id }} · {{ job.status }}
-  </div>
-{% endfor %}
+{% macro status_class(status) -%}
+  {%- if status == 'running' -%}run
+  {%- elif status == 'success' -%}ok
+  {%- elif status == 'failed' -%}fail
+  {%- endif -%}
+{%- endmacro %}
+{% if jobs %}
+  {% for job in jobs %}
+    <button
+      type="button"
+      id="job-{{ job.id }}"
+      class="job-row {{ status_class(job.status) }}"
+      data-job="{{ job.id }}"
+      hx-get="/jobs/{{ job.id }}/fragments/log"
+      hx-target="#job-log-body"
+      hx-swap="innerHTML"
+    >
+      <span class="dot {{ status_class(job.status) }}"></span>
+      <span class="job-name">job #{{ job.id }} · {{ job.source }}</span>
+      <span class="job-status">{{ job.status }}</span>
+    </button>
+  {% endfor %}
+{% else %}
+  <div class="empty"><span class="glyph">◌</span>Нет активных джобов</div>
+{% endif %}

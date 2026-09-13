@@ -25,17 +25,7 @@ def python_tab(request: Request, session: Session = Depends(get_session)) -> HTM
             )
         ).all()
     )
-    test_types = list(
-        session.exec(
-            select(ReferenceItem).where(
-                ReferenceItem.category == "test_type",
-                ReferenceItem.is_active == True,  # noqa: E712
-            )
-        ).all()
-    )
-    return templates.TemplateResponse(
-        request, "python_tab.html", {"teams": teams, "test_types": test_types}
-    )
+    return templates.TemplateResponse(request, "python_tab.html", {"teams": teams})
 
 
 @router.post("/python/launch", response_class=HTMLResponse)
@@ -44,7 +34,6 @@ async def python_launch(
     background_tasks: BackgroundTasks,
     team_id: int = Form(...),
     stand_id: int = Form(...),
-    test_type_id: int = Form(...),
     regression_type: str = Form(...),
     execution_mode: str = Form(...),
     test_name_id: int | None = Form(None),
@@ -54,7 +43,6 @@ async def python_launch(
     params = {
         "team_id": team_id,
         "stand_id": stand_id,
-        "test_type_id": test_type_id,
         "regression_type": regression_type,
         "test_name_id": test_name_id,
         "dataset_id": dataset_id,

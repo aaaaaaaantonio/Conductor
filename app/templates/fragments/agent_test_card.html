@@ -1,24 +1,47 @@
-<div>
-  <h3>{{ test.path }}</h3>
-  <table>
-    {% for flag in test.flags %}
-      {% include "fragments/flag_row.html" %}
-    {% endfor %}
-  </table>
-  <table>
-    {% for field in test.fields %}
-      {% include "fragments/field_row.html" %}
-    {% endfor %}
-  </table>
-  <form id="launch-form-{{ test.id }}" data-launch-url="/api/agent-tests/{{ test.id }}/launch">
-    {% for field in test.fields %}
-      <label>{{ field.label }}
-        <input name="{{ field.flag_name }}" type="{{ 'checkbox' if field.type == 'checkbox' else 'text' }}" {{ 'required' if field.required and field.type != 'checkbox' }}>
+<div class="modal-test-path">{{ test.path }}</div>
+
+<form id="launch-form-{{ test.id }}" data-launch-url="/api/agent-tests/{{ test.id }}/launch">
+  {% set checkbox_fields = test.fields | selectattr('type', 'equalto', 'checkbox') | list %}
+  {% set input_fields = test.fields | rejectattr('type', 'equalto', 'checkbox') | list %}
+
+  {% if checkbox_fields %}
+    <div class="section-label">Флаги без параметров</div>
+    {% for field in checkbox_fields %}
+      <label class="checkbox-row">
+        <input type="checkbox" name="{{ field.flag_name }}">
+        <span class="flag-name">{{ field.flag_name }}</span>
+        <span class="checkbox-hint">{{ field.label }}</span>
       </label>
     {% endfor %}
-    <button type="submit">Запустить</button>
-  </form>
-</div>
+  {% endif %}
+
+  {% if input_fields %}
+    <div class="section-label{% if checkbox_fields %} section-gap{% endif %}">Параметры</div>
+    {% for field in input_fields %}
+      <div class="field">
+        <label for="field-{{ test.id }}-{{ loop.index }}">
+          {{ field.label }}
+          {% if field.required %}<span class="req-mark">обязательное</span>{% else %}<span class="opt-mark">опционально</span>{% endif %}
+        </label>
+        <input
+          id="field-{{ test.id }}-{{ loop.index }}"
+          name="{{ field.flag_name }}"
+          type="{{ 'number' if field.type == 'number' else 'text' }}"
+          {{ 'required' if field.required }}
+        >
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if not test.fields %}
+    <div class="empty-card">У этого теста нет настраиваемых параметров</div>
+  {% endif %}
+
+  <div class="modal-foot">
+    <button type="button" class="btn-secondary modal-cancel">Отмена</button>
+    <button type="submit" class="btn-primary" id="launch-submit-{{ test.id }}" style="width:auto">Запустить тест</button>
+  </div>
+</form>
 <script>
 (function () {
   // The launch endpoint (POST /api/agent-tests/{id}/launch) requires a JSON
@@ -29,6 +52,7 @@
   // checkbox fields so an unchecked boolean flag is still sent (as false)
   // rather than silently dropped.
   var form = document.getElementById("launch-form-{{ test.id }}");
+  var submitBtn = document.getElementById("launch-submit-{{ test.id }}");
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     var values = {};
@@ -36,11 +60,13 @@
       if (!el.name) return;
       values[el.name] = el.type === "checkbox" ? el.checked : el.value;
     });
+    submitBtn.disabled = true;
     fetch(form.dataset.launchUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ values: values }),
     }).then(function (resp) {
+      submitBtn.disabled = false;
       if (resp.ok) {
         if (window.htmx) {
           htmx.ajax("GET", "/jobs/fragments/list", { target: "#job-list", swap: "innerHTML" });
@@ -53,6 +79,7 @@
         alert("Launch failed (" + resp.status + ")");
       });
     }).catch(function (err) {
+      submitBtn.disabled = false;
       alert("Launch failed: " + err);
     });
   });
