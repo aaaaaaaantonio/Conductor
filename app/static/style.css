@@ -34,7 +34,9 @@ body{
 .layout{display:grid; gap:16px; align-items:start}
 .layout.python{grid-template-columns:280px 1fr 260px}
 .layout.agents{grid-template-columns:220px 1fr 260px}
+.layout.refs{grid-template-columns:repeat(2, minmax(280px, 1fr))}
 @media (max-width:960px){ .layout.python, .layout.agents{grid-template-columns:1fr} }
+@media (max-width:760px){ .layout.refs{grid-template-columns:1fr} }
 
 .panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px}
 .panel h2{font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); margin:0 0 14px; font-weight:600}
@@ -136,6 +138,19 @@ body{
 .tree-test:hover{background:var(--page)}
 .tree-test.selected{background:var(--accent-soft); color:var(--accent-strong); font-weight:500}
 .tree-test.tree-add{color:var(--accent); font-style:italic; font-family:inherit}
+
+/* references management */
+.ref-list{margin-bottom:16px}
+.ref-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:6px; font-size:.85rem}
+.ref-row:hover{background:var(--page)}
+.ref-row .ref-meta{color:var(--ink-faint); font-size:.75rem}
+.ref-row .ref-del{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.9rem; padding:2px 8px; border-radius:4px; flex-shrink:0}
+.ref-row .ref-del:hover{background:var(--status-fail-bg); color:var(--status-fail)}
+.ref-empty{color:var(--ink-faint); font-size:.8rem; padding:4px 8px 12px}
+.ref-form{display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line)}
+.ref-form .field{margin-bottom:0; flex:1; min-width:140px}
+.ref-checks{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; font-size:.82rem}
+.ref-checks label{display:flex; align-items:center; gap:5px}
 
 /* modal: test launch card */
 .modal-overlay{

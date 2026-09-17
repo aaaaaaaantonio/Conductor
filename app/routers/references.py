@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -10,6 +11,7 @@ from app.db import get_session
 from app.models.reference import ReferenceItem, TeamStandLink
 
 router = APIRouter(prefix="/api/references", tags=["references"])
+page_router = APIRouter(tags=["references-ui"])
 templates = Jinja2Templates(directory="app/templates")
 
 
@@ -131,4 +133,41 @@ def dataset_options_fragment(
     datasets = list(session.exec(statement).all())
     return templates.TemplateResponse(
         request, "fragments/dataset_options.html", {"datasets": datasets}
+    )
+
+
+@page_router.get("/references", response_class=HTMLResponse)
+def references_page(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
+    items = list(
+        session.exec(
+            select(ReferenceItem).where(ReferenceItem.is_active == True)  # noqa: E712
+        ).all()
+    )
+    teams = [i for i in items if i.category == "team"]
+    stands = [i for i in items if i.category == "stand"]
+    test_names = [i for i in items if i.category == "test_name"]
+    datasets = [i for i in items if i.category == "dataset"]
+
+    team_by_id = {t.id: t for t in teams}
+    test_name_by_id = {t.id: t for t in test_names}
+
+    links = list(session.exec(select(TeamStandLink)).all())
+    stand_team_names: dict[int, list[str]] = defaultdict(list)
+    for link in links:
+        team = team_by_id.get(link.team_id)
+        if team is not None:
+            stand_team_names[link.stand_id].append(team.value)
+
+    return templates.TemplateResponse(
+        request,
+        "references.html",
+        {
+            "teams": teams,
+            "stands": stands,
+            "test_names": test_names,
+            "datasets": datasets,
+            "stand_team_names": stand_team_names,
+            "team_by_id": team_by_id,
+            "test_name_by_id": test_name_by_id,
+        },
     )

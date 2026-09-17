@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.db import init_db
 from app.models.jobs import Job
 from app.routers.references import router as references_router
+from app.routers.references import page_router as references_page_router
 from app.routers.jobs import router as jobs_router
 from app.routers.agent_testing import router as agent_testing_router
 from app.routers.launch_python import router as launch_python_router
@@ -23,6 +24,7 @@ def recover_stale_jobs(session: Session) -> None:
 def create_app() -> FastAPI:
     app = FastAPI(title="Test Runner Bot")
     app.include_router(references_router)
+    app.include_router(references_page_router)
     app.include_router(jobs_router)
     app.include_router(agent_testing_router)
     app.include_router(launch_python_router)

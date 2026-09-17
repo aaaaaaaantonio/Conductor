@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layout refs">
+
+  <div class="panel">
+    <h2>Команды</h2>
+    <div class="ref-list">
+      {% for team in teams %}
+        <div class="ref-row">
+          <span>{{ team.value }}</span>
+          <button type="button" class="ref-del" data-delete-url="/api/references/{{ team.id }}">✕</button>
+        </div>
+      {% else %}
+        <div class="ref-empty">Пока нет ни одной команды</div>
+      {% endfor %}
+    </div>
+    <form class="ref-form" data-create-category="team">
+      <div class="field">
+        <label for="new-team-value">Название команды</label>
+        <input id="new-team-value" name="value" type="text" required>
+      </div>
+      <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Стенды</h2>
+    <div class="ref-list">
+      {% for stand in stands %}
+        <div class="ref-row">
+          <span>{{ stand.value }}
+            {% set linked = stand_team_names.get(stand.id, []) %}
+            {% if linked %}<span class="ref-meta">&middot; {{ linked | join(', ') }}</span>{% endif %}
+          </span>
+          <button type="button" class="ref-del" data-delete-url="/api/references/{{ stand.id }}">✕</button>
+        </div>
+      {% else %}
+        <div class="ref-empty">Пока нет ни одного стенда</div>
+      {% endfor %}
+    </div>
+    <form class="ref-form" data-create-category="stand" id="new-stand-form">
+      <div class="field">
+        <label for="new-stand-value">Название стенда</label>
+        <input id="new-stand-value" name="value" type="text" required>
+      </div>
+      <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
+    </form>
+    {% if teams %}
+      <div class="section-label" style="margin-top:12px">Привязать команды к новому стенду</div>
+      <div class="ref-checks" id="new-stand-teams">
+        {% for team in teams %}
+          <label><input type="checkbox" value="{{ team.id }}">{{ team.value }}</label>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Имена тестов</h2>
+    <div class="ref-list">
+      {% for tn in test_names %}
+        <div class="ref-row">
+          <span>{{ tn.value }} <span class="ref-meta">&middot; {{ team_by_id.get(tn.parent_id).value if team_by_id.get(tn.parent_id) else '—' }}</span></span>
+          <button type="button" class="ref-del" data-delete-url="/api/references/{{ tn.id }}">✕</button>
+        </div>
+      {% else %}
+        <div class="ref-empty">Пока нет ни одного имени теста</div>
+      {% endfor %}
+    </div>
+    {% if teams %}
+      <form class="ref-form" data-create-category="test_name" data-parent-select="#new-test-name-team">
+        <div class="field">
+          <label for="new-test-name-team">Команда</label>
+          <select id="new-test-name-team" required>
+            {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="new-test-name-value">Имя теста</label>
+          <input id="new-test-name-value" name="value" type="text" required>
+        </div>
+        <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
+      </form>
+    {% else %}
+      <div class="ref-empty">Сначала добавьте команду</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Датасеты</h2>
+    <div class="ref-list">
+      {% for ds in datasets %}
+        <div class="ref-row">
+          <span>{{ ds.value }} <span class="ref-meta">&middot; {{ test_name_by_id.get(ds.parent_id).value if test_name_by_id.get(ds.parent_id) else '—' }}</span></span>
+          <button type="button" class="ref-del" data-delete-url="/api/references/{{ ds.id }}">✕</button>
+        </div>
+      {% else %}
+        <div class="ref-empty">Пока нет ни одного датасета</div>
+      {% endfor %}
+    </div>
+    {% if test_names %}
+      <form class="ref-form" data-create-category="dataset" data-parent-select="#new-dataset-test-name">
+        <div class="field">
+          <label for="new-dataset-test-name">Тест</label>
+          <select id="new-dataset-test-name" required>
+            {% for tn in test_names %}<option value="{{ tn.id }}">{{ tn.value }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="new-dataset-value">Датасет</label>
+          <input id="new-dataset-value" name="value" type="text" required>
+        </div>
+        <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
+      </form>
+    {% else %}
+      <div class="ref-empty">Сначала добавьте имя теста</div>
+    {% endif %}
+  </div>
+
+</div>
+<script>
+(function () {
+  function reload() { location.reload(); }
+
+  document.querySelectorAll("form[data-create-category]").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var category = form.dataset.createCategory;
+      var value = form.querySelector("input[name=value]").value;
+      var parentId = null;
+      if (form.dataset.parentSelect) {
+        parentId = Number(document.querySelector(form.dataset.parentSelect).value);
+      }
+      fetch("/api/references", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: category, value: value, parent_id: parentId }),
+      }).then(function (resp) {
+        if (resp.ok) {
+          if (category === "stand") {
+            var checked = Array.prototype.slice.call(
+              document.querySelectorAll("#new-stand-teams input:checked")
+            ).map(function (el) { return Number(el.value); });
+            resp.json().then(function (stand) {
+              Promise.all(checked.map(function (teamId) {
+                return fetch("/api/references/team-stand-links", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ team_id: teamId, stand_id: stand.id }),
+                });
+              })).then(reload);
+            });
+            return;
+          }
+          reload();
+          return;
+        }
+        resp.json().then(function (body) {
+          alert((body && body.detail) || "Не удалось добавить (" + resp.status + ")");
+        }).catch(function () {
+          alert("Не удалось добавить (" + resp.status + ")");
+        });
+      }).catch(function (err) {
+        alert("Не удалось добавить: " + err);
+      });
+    });
+  });
+
+  document.querySelectorAll(".ref-del").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (!confirm("Удалить запись?")) return;
+      fetch(btn.dataset.deleteUrl, { method: "DELETE" }).then(function (resp) {
+        if (resp.ok) { reload(); return; }
+        alert("Не удалось удалить (" + resp.status + ")");
+      }).catch(function (err) {
+        alert("Не удалось удалить: " + err);
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}
