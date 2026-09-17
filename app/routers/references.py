@@ -56,6 +56,28 @@ def create_reference_item(
     return item
 
 
+class ReferenceItemUpdateRequest(BaseModel):
+    value: str
+    parent_id: Optional[int] = None
+    command: Optional[str] = None
+
+
+@router.put("/{item_id}", response_model=ReferenceItem)
+def update_reference_item(
+    item_id: int, payload: ReferenceItemUpdateRequest, session: Session = Depends(get_session)
+) -> ReferenceItem:
+    item = session.get(ReferenceItem, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    item.value = payload.value
+    item.parent_id = payload.parent_id
+    item.command = payload.command
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item
+
+
 @router.delete("/{item_id}", status_code=204)
 def soft_delete_reference_item(
     item_id: int, session: Session = Depends(get_session)
@@ -148,8 +170,8 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     test_names = [i for i in items if i.category == "test_name"]
     datasets = [i for i in items if i.category == "dataset"]
 
-    team_by_id = {t.id: t for t in teams}
-    test_name_by_id = {t.id: t for t in test_names}
+    team_by_id: dict[Optional[int], ReferenceItem] = {t.id: t for t in teams}
+    test_name_by_id: dict[Optional[int], ReferenceItem] = {t.id: t for t in test_names}
 
     links = list(session.exec(select(TeamStandLink)).all())
     stand_team_names: dict[int, list[str]] = defaultdict(list)

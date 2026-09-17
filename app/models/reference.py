@@ -10,6 +10,7 @@ class ReferenceItem(SQLModel, table=True):
     is_active: bool = Field(default=True)
     sort_order: int = Field(default=0)
     parent_id: Optional[int] = Field(default=None, foreign_key="referenceitem.id")
+    command: Optional[str] = Field(default=None)
 
 
 class TeamStandLink(SQLModel, table=True):

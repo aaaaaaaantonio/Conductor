@@ -144,8 +144,13 @@ body{
 .ref-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:6px; font-size:.85rem}
 .ref-row:hover{background:var(--page)}
 .ref-row .ref-meta{color:var(--ink-faint); font-size:.75rem}
-.ref-row .ref-del{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.9rem; padding:2px 8px; border-radius:4px; flex-shrink:0}
+.ref-row .ref-meta code{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.72rem}
+.ref-row .ref-actions{display:flex; gap:2px; flex-shrink:0}
+.ref-row .ref-edit, .ref-row .ref-del{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.85rem; padding:2px 8px; border-radius:4px}
+.ref-row .ref-edit:hover{background:var(--page); color:var(--ink)}
 .ref-row .ref-del:hover{background:var(--status-fail-bg); color:var(--status-fail)}
+.ref-row .ref-edit-value, .ref-row .ref-edit-command{flex:1; min-width:0; padding:5px 8px; border:1px solid var(--line); border-radius:6px; font-size:.82rem; background:var(--surface); color:var(--ink)}
+.ref-row .ref-edit-save, .ref-row .ref-edit-cancel{flex-shrink:0; padding:4px 10px}
 .ref-empty{color:var(--ink-faint); font-size:.8rem; padding:4px 8px 12px}
 .ref-form{display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line)}
 .ref-form .field{margin-bottom:0; flex:1; min-width:140px}
