@@ -1,10 +1,12 @@
 import asyncio
 from pathlib import Path
 
+import httpx
 from sqlmodel import Session
 
 from app.execution.broadcaster import EventBroadcaster
 from app.execution.broadcaster import broadcaster as default_broadcaster
+from app.execution.jenkins_client import poll_build_status, trigger_build
 from app.models.jobs import Job
 
 
@@ -90,3 +92,66 @@ async def start_local_job_with_own_session(
 
     with Session(db_engine) as session:
         await start_local_job(job_id, command, log_dir, session, broadcaster)
+
+
+async def start_jenkins_job(
+    job_id: int,
+    base_url: str,
+    job_name: str,
+    params: dict,
+    session: Session,
+    client: httpx.AsyncClient,
+    broadcaster: EventBroadcaster = default_broadcaster,
+    poll_interval: float = 5.0,
+) -> None:
+    job = session.get(Job, job_id)
+    assert job is not None
+
+    job.status = "running"
+    session.add(job)
+    session.commit()
+    await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": "running"})
+
+    try:
+        build_url = await trigger_build(base_url, job_name, params, client)
+        job.jenkins_build_id = build_url
+        session.add(job)
+        session.commit()
+
+        status = "running"
+        while status == "running":
+            await asyncio.sleep(poll_interval)
+            status = await poll_build_status(base_url, build_url, client)
+        job.status = status
+    except Exception:
+        # A failure to trigger/poll the build must still land the job in a
+        # terminal state with a broadcast — otherwise the UI waiting on
+        # job-status hangs forever with status stuck at "running".
+        job.status = "failed"
+    finally:
+        session.add(job)
+        session.commit()
+        await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": job.status})
+
+
+async def start_jenkins_job_with_own_session(
+    job_id: int,
+    base_url: str,
+    job_name: str,
+    params: dict,
+    broadcaster: EventBroadcaster = default_broadcaster,
+    poll_interval: float = 5.0,
+) -> None:
+    """Entry point for BackgroundTasks — opens its own Session and http client.
+
+    Mirrors `start_local_job_with_own_session`: a request-scoped `session`
+    is closed before background tasks run, so this opens a fresh one
+    against the shared `engine` instead.
+    """
+    from app.db import engine as db_engine
+
+    with Session(db_engine) as session:
+        async with httpx.AsyncClient() as client:
+            await start_jenkins_job(
+                job_id, base_url, job_name, params, session, client, broadcaster, poll_interval
+            )

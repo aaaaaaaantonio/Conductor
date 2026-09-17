@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layout python" hx-ext="sse" sse-connect="/jobs/stream">
+  <div class="panel">
+    <h2>Параметры запуска</h2>
+    <form hx-post="/java/launch" hx-target="#job-list" hx-swap="innerHTML" hx-disabled-elt="#j-submit">
+      <div class="field">
+        <label for="j-team-select">Команда</label>
+        <select name="team_id" id="j-team-select">
+          {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-stand-select">Стенд</label>
+        <select
+          id="j-stand-select"
+          name="stand_id"
+          hx-get="/api/references/fragments/stands"
+          hx-include="#j-team-select"
+          hx-trigger="load, change from:#j-team-select"
+        ></select>
+      </div>
+      <div class="field">
+        <label for="j-regtype-select">Вид прогона</label>
+        <select id="j-regtype-select" name="regression_type">
+          <option value="regression">Регресс</option>
+          <option value="nfr">НФ</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-part-select">Часть</label>
+        <select id="j-part-select" name="part">
+          <option value="front">Фронт</option>
+          <option value="back">Бэк</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-mode-select">Режим</label>
+        <select id="j-mode-select" name="execution_mode">
+          <option value="jenkins">Jenkins</option>
+          <option value="vm">VM-агент</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-test-name-select">Имя теста</label>
+        <select
+          id="j-test-name-select"
+          name="test_name_id"
+          hx-get="/api/references/fragments/test-names"
+          hx-include="#j-team-select"
+          hx-trigger="load, change from:#j-team-select"
+        ></select>
+      </div>
+      <button class="btn-primary" id="j-submit" type="submit">Запустить</button>
+    </form>
+  </div>
+
+  <div class="panel log-panel">
+    <h2>Лог</h2>
+    <div id="job-log-body">
+      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу справа, чтобы увидеть лог</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Активные джобы</h2>
+    <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
+  </div>
+</div>
+{% endblock %}
