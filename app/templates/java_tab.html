@@ -18,6 +18,7 @@
           hx-get="/api/references/fragments/stands"
           hx-include="#j-team-select"
           hx-trigger="load, change from:#j-team-select"
+          hx-disabled-elt="unset"
         ></select>
       </div>
       <div class="field">
@@ -49,6 +50,7 @@
           hx-get="/api/references/fragments/test-names"
           hx-include="#j-team-select"
           hx-trigger="load, change from:#j-team-select"
+          hx-disabled-elt="unset"
         ></select>
       </div>
       <button class="btn-primary" id="j-submit" type="submit">Запустить</button>

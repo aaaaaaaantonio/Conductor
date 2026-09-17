@@ -18,6 +18,7 @@
           hx-get="/api/references/fragments/stands"
           hx-include="#team-select"
           hx-trigger="load, change from:#team-select"
+          hx-disabled-elt="unset"
         ></select>
       </div>
       <div class="field">
@@ -42,6 +43,7 @@
           hx-get="/api/references/fragments/test-names"
           hx-include="#team-select"
           hx-trigger="load, change from:#team-select"
+          hx-disabled-elt="unset"
         ></select>
       </div>
       <div class="field">
@@ -52,6 +54,7 @@
           hx-get="/api/references/fragments/datasets"
           hx-include="#test-name-select"
           hx-trigger="htmx:afterSwap from:#test-name-select"
+          hx-disabled-elt="unset"
         ></select>
       </div>
       <button class="btn-primary" id="p-submit" type="submit">Запустить</button>

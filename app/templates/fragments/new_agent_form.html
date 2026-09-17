@@ -1,0 +1,42 @@
+<div class="modal-test-path">Новый агент — {{ team.value }}</div>
+
+<form id="new-agent-form">
+  <div class="field">
+    <label for="new-agent-name">Имя агента</label>
+    <input id="new-agent-name" name="name" type="text" required>
+  </div>
+
+  <div class="modal-foot">
+    <button type="button" class="btn-secondary modal-cancel">Отмена</button>
+    <button type="submit" class="btn-primary" id="new-agent-submit" style="width:auto">Создать</button>
+  </div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById("new-agent-form");
+  var submitBtn = document.getElementById("new-agent-submit");
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    submitBtn.disabled = true;
+    fetch("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ team_id: {{ team.id }}, name: form.elements["name"].value }),
+    }).then(function (resp) {
+      if (resp.ok) {
+        location.reload();
+        return;
+      }
+      submitBtn.disabled = false;
+      resp.json().then(function (body) {
+        alert((body && body.detail) || "Не удалось создать агента (" + resp.status + ")");
+      }).catch(function () {
+        alert("Не удалось создать агента (" + resp.status + ")");
+      });
+    }).catch(function (err) {
+      submitBtn.disabled = false;
+      alert("Не удалось создать агента: " + err);
+    });
+  });
+})();
+</script>

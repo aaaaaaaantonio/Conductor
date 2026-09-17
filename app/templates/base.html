@@ -11,7 +11,7 @@
   <div class="wrap">
     <div class="appbar">
       <h1>Test Runner Bot</h1>
-      <nav class="tabs">
+      <nav class="tabs" hx-boost="true">
         <a href="/java" class="{{ 'active' if request.url.path == '/java' else '' }}">Java-таб</a>
         <a href="/python" class="{{ 'active' if request.url.path == '/python' else '' }}">Python-таб</a>
         <a href="/agent-testing" class="{{ 'active' if request.url.path == '/agent-testing' else '' }}">Тестирование агентов</a>

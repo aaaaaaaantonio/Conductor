@@ -135,6 +135,7 @@ body{
 }
 .tree-test:hover{background:var(--page)}
 .tree-test.selected{background:var(--accent-soft); color:var(--accent-strong); font-weight:500}
+.tree-test.tree-add{color:var(--accent); font-style:italic; font-family:inherit}
 
 /* modal: test launch card */
 .modal-overlay{

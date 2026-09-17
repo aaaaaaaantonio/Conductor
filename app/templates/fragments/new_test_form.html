@@ -1,0 +1,84 @@
+<div class="modal-test-path">Новый тест — {{ agent.name }}</div>
+
+<form id="new-test-form">
+  <div class="field">
+    <label for="new-test-path">Путь теста</label>
+    <input id="new-test-path" name="path" type="text" required>
+  </div>
+
+  <div class="section-label">Параметры</div>
+  <div id="new-test-fields"></div>
+  <button type="button" class="btn-secondary" id="new-test-add-row" style="width:auto; margin-bottom:14px">+ Добавить параметр</button>
+
+  <div class="modal-foot">
+    <button type="button" class="btn-secondary modal-cancel">Отмена</button>
+    <button type="submit" class="btn-primary" id="new-test-submit" style="width:auto">Создать</button>
+  </div>
+</form>
+<script>
+(function () {
+  var container = document.getElementById("new-test-fields");
+
+  function addRow() {
+    var row = document.createElement("div");
+    row.className = "field-row";
+    row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:8px";
+    row.innerHTML =
+      '<input type="text" placeholder="Метка" class="f-label" style="flex:2">' +
+      '<input type="text" placeholder="--flag" class="f-flag" style="flex:2">' +
+      '<select class="f-type" style="flex:1">' +
+        '<option value="text">text</option>' +
+        '<option value="number">number</option>' +
+        '<option value="checkbox">checkbox</option>' +
+      '</select>' +
+      '<label style="display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:.8rem">' +
+        '<input type="checkbox" class="f-required">обяз.</label>' +
+      '<button type="button" class="btn-secondary remove-row" style="width:auto">✕</button>';
+    container.appendChild(row);
+  }
+
+  document.getElementById("new-test-add-row").addEventListener("click", addRow);
+  container.addEventListener("click", function (e) {
+    var btn = e.target.closest(".remove-row");
+    if (btn) btn.closest(".field-row").remove();
+  });
+  addRow();
+
+  var form = document.getElementById("new-test-form");
+  var submitBtn = document.getElementById("new-test-submit");
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var fields = [];
+    container.querySelectorAll(".field-row").forEach(function (row) {
+      var flag = row.querySelector(".f-flag").value.trim();
+      if (!flag) return;
+      fields.push({
+        label: row.querySelector(".f-label").value.trim() || flag,
+        flag_name: flag,
+        type: row.querySelector(".f-type").value,
+        required: row.querySelector(".f-required").checked,
+      });
+    });
+    submitBtn.disabled = true;
+    fetch("/api/agents/{{ agent.id }}/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: form.elements["path"].value, flags: [], fields: fields }),
+    }).then(function (resp) {
+      if (resp.ok) {
+        location.reload();
+        return;
+      }
+      submitBtn.disabled = false;
+      resp.json().then(function (body) {
+        alert((body && body.detail) || "Не удалось создать тест (" + resp.status + ")");
+      }).catch(function () {
+        alert("Не удалось создать тест (" + resp.status + ")");
+      });
+    }).catch(function (err) {
+      submitBtn.disabled = false;
+      alert("Не удалось создать тест: " + err);
+    });
+  });
+})();
+</script>

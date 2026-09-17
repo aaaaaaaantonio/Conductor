@@ -54,12 +54,14 @@
   var modal = document.getElementById("test-modal");
   if (modal) {
     document.body.addEventListener("click", function (e) {
-      var link = e.target.closest(".tree-test");
+      var link = e.target.closest(".modal-trigger");
       if (link) {
-        document.querySelectorAll(".tree-test").forEach(function (t) {
-          t.classList.remove("selected");
-        });
-        link.classList.add("selected");
+        if (link.classList.contains("tree-test") && !link.classList.contains("tree-add")) {
+          document.querySelectorAll(".tree-test").forEach(function (t) {
+            t.classList.remove("selected");
+          });
+          link.classList.add("selected");
+        }
         modal.classList.add("open");
         return;
       }

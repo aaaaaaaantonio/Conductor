@@ -194,3 +194,23 @@ def agent_test_card_fragment(
         "fragments/agent_test_card.html",
         {"test": data},
     )
+
+
+@router.get("/agent-testing/teams/{team_id}/fragments/new-agent", response_class=HTMLResponse)
+def new_agent_fragment(
+    request: Request, team_id: int, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    team = session.get(ReferenceItem, team_id)
+    if team is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return templates.TemplateResponse(request, "fragments/new_agent_form.html", {"team": team})
+
+
+@router.get("/agent-testing/agents/{agent_id}/fragments/new-test", response_class=HTMLResponse)
+def new_test_fragment(
+    request: Request, agent_id: int, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    agent = session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return templates.TemplateResponse(request, "fragments/new_test_form.html", {"agent": agent})

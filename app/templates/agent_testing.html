@@ -11,9 +11,11 @@
             {% for agent in agents_by_team.get(team.id, []) %}
               <div class="tree-agent">{{ agent.name }}</div>
               {% for test in tests_by_agent.get(agent.id, []) %}
-                <a class="tree-test" href="#" hx-get="/agent-testing/tests/{{ test.id }}/fragments/card" hx-target="#modal-body" hx-swap="innerHTML">{{ test.path }}</a>
+                <a class="tree-test modal-trigger" href="#" hx-get="/agent-testing/tests/{{ test.id }}/fragments/card" hx-target="#modal-body" hx-swap="innerHTML">{{ test.path }}</a>
               {% endfor %}
+              <a class="tree-test modal-trigger tree-add" href="#" hx-get="/agent-testing/agents/{{ agent.id }}/fragments/new-test" hx-target="#modal-body" hx-swap="innerHTML">+ Добавить тест</a>
             {% endfor %}
+            <a class="tree-test modal-trigger tree-add" href="#" hx-get="/agent-testing/teams/{{ team.id }}/fragments/new-agent" hx-target="#modal-body" hx-swap="innerHTML">+ Добавить агента</a>
           </div>
         </div>
       </div>
