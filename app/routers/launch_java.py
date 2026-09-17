@@ -40,12 +40,19 @@ async def java_launch(
     test_name_id: int | None = Form(None),
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
+    test_command = None
+    if test_name_id is not None:
+        test_item = session.get(ReferenceItem, test_name_id)
+        if test_item is not None:
+            test_command = test_item.command
+
     params = {
         "team_id": team_id,
         "stand_id": stand_id,
         "regression_type": regression_type,
         "part": part,
         "test_name_id": test_name_id,
+        "test_command": test_command,
     }
     job = Job(source="java", status="queued", params_json=json.dumps(params))
     session.add(job)

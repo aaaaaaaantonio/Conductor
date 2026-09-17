@@ -50,11 +50,18 @@ async def python_launch(
     dataset_id: int | None = Form(None),
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
+    test_command = None
+    if test_name_id is not None:
+        test_item = session.get(ReferenceItem, test_name_id)
+        if test_item is not None:
+            test_command = test_item.command
+
     params = {
         "team_id": team_id,
         "stand_id": stand_id,
         "regression_type": regression_type,
         "test_name_id": test_name_id,
+        "test_command": test_command,
         "dataset_id": dataset_id,
     }
     job = Job(source="python", status="queued", params_json=json.dumps(params))
@@ -67,7 +74,7 @@ async def python_launch(
             "--team": team_id,
             "--stand": stand_id,
             "--regression-type": regression_type,
-            "--test-name": test_name_id,
+            "--test-name": test_command if test_command else test_name_id,
             "--dataset": dataset_id,
         }
         command = build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values)
