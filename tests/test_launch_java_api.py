@@ -22,7 +22,6 @@ def test_launch_java_creates_queued_job(client, session):
             "stand_id": 1,
             "regression_type": "regression",
             "part": "back",
-            "execution_mode": "jenkins",
         },
     )
     assert resp.status_code == 200
@@ -53,7 +52,6 @@ def test_launch_java_jenkins_mode_polls_and_marks_success(client, session, monke
             "stand_id": 1,
             "regression_type": "regression",
             "part": "back",
-            "execution_mode": "jenkins",
         },
     )
     assert resp.status_code == 200
