@@ -1,5 +1,4 @@
 import json
-from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
@@ -12,6 +11,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.execution.command_builder import FieldSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
+from app.grouping import group_by
 from app.models.agent_testing import Agent, AgentTest
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem
@@ -166,13 +166,8 @@ def agent_testing_page(request: Request, session: Session = Depends(get_session)
     agents = list(session.exec(select(Agent)).all())
     tests = list(session.exec(select(AgentTest)).all())
 
-    agents_by_team: dict[int, list[Agent]] = defaultdict(list)
-    for a in agents:
-        agents_by_team[a.team_id].append(a)
-
-    tests_by_agent: dict[int, list[AgentTest]] = defaultdict(list)
-    for t in tests:
-        tests_by_agent[t.agent_id].append(t)
+    agents_by_team = group_by(agents, lambda a: a.team_id)
+    tests_by_agent = group_by(tests, lambda t: t.agent_id)
 
     return templates.TemplateResponse(
         request,

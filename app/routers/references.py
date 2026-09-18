@@ -8,11 +8,18 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.grouping import group_by
 from app.models.reference import ReferenceItem, TeamStandLink
 
 router = APIRouter(prefix="/api/references", tags=["references"])
 page_router = APIRouter(tags=["references-ui"])
 templates = Jinja2Templates(directory="app/templates")
+
+# Placeholders for children whose parent was soft-deleted while they're
+# still active, so they stay visible/editable instead of vanishing from the
+# UI (see references_page).
+_ORPHAN_TEAM = ReferenceItem(category="team", value="Без команды")
+_ORPHAN_TEST_NAME = ReferenceItem(category="test_name", value="Без теста")
 
 
 class TeamStandLinkRequest(BaseModel):
@@ -192,30 +199,44 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
         if team is not None and link.stand_id is not None:
             stand_teams[link.stand_id].append(team)
 
-    tests_by_team_id: dict[int, list[ReferenceItem]] = defaultdict(list)
-    for tn in test_names:
-        if tn.parent_id is not None:
-            tests_by_team_id[tn.parent_id].append(tn)
-    tests_by_team = [
-        (team, tests_by_team_id[team.id])
-        for team in sorted(teams, key=lambda t: t.value)
-        if team.id in tests_by_team_id
+    # Group by parent id; a test_name/dataset whose parent was soft-deleted
+    # still has a real parent_id here, it just no longer matches any `team`/
+    # `test_name` in the active lists above — that case is handled below by
+    # bucketing it under an "orphan" placeholder instead of dropping it.
+    tests_by_team_id = group_by(test_names, lambda tn: tn.parent_id)
+    tests_by_team: list[tuple[ReferenceItem, list[ReferenceItem]]] = []
+    matched_team_ids: set[Optional[int]] = set()
+    for team in sorted(teams, key=lambda t: t.value):
+        if team.id in tests_by_team_id:
+            tests_by_team.append((team, tests_by_team_id[team.id]))
+            matched_team_ids.add(team.id)
+    orphan_tests = [
+        tn
+        for parent_id, tns in tests_by_team_id.items()
+        if parent_id not in matched_team_ids
+        for tn in tns
     ]
+    if orphan_tests:
+        tests_by_team.append((_ORPHAN_TEAM, orphan_tests))
 
-    datasets_by_test_id: dict[int, list[ReferenceItem]] = defaultdict(list)
-    for ds in datasets:
-        if ds.parent_id is not None:
-            datasets_by_test_id[ds.parent_id].append(ds)
-
-    datasets_by_team = []
+    datasets_by_test_id = group_by(datasets, lambda ds: ds.parent_id)
+    datasets_by_team: list[tuple[ReferenceItem, list[tuple[ReferenceItem, list[ReferenceItem]]]]] = []
+    matched_test_ids: set[Optional[int]] = set()
     for team, tests in tests_by_team:
         team_tests = [
-            (tn, datasets_by_test_id[tn.id])
-            for tn in tests
-            if tn.id in datasets_by_test_id
+            (tn, datasets_by_test_id[tn.id]) for tn in tests if tn.id in datasets_by_test_id
         ]
+        matched_test_ids.update(tn.id for tn, _ in team_tests)
         if team_tests:
             datasets_by_team.append((team, team_tests))
+    orphan_datasets = [
+        ds
+        for parent_id, dss in datasets_by_test_id.items()
+        if parent_id not in matched_test_ids
+        for ds in dss
+    ]
+    if orphan_datasets:
+        datasets_by_team.append((_ORPHAN_TEAM, [(_ORPHAN_TEST_NAME, orphan_datasets)]))
 
     return templates.TemplateResponse(
         request,

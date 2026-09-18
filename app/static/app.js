@@ -1,3 +1,15 @@
+// Shared helper: keep exactly one delegated listener alive on a
+// persistent target (document/document.body) across hx-boost re-renders.
+// A boosted nav swaps <body>'s innerHTML and re-runs page scripts, but
+// document/document.body themselves survive, so a page's own delegated
+// handler — which closes over now-stale content — must be swapped out
+// (not stacked) on every re-run rather than registered fresh each time.
+window.bindPersistent = window.bindPersistent || function (target, type, key, handler) {
+  if (window[key]) target.removeEventListener(type, window[key]);
+  window[key] = handler;
+  target.addEventListener(type, handler);
+};
+
 (function () {
   // hx-boost re-fetches and re-executes this script on every tab navigation
   // (it swaps <body>'s innerHTML but document.body itself persists), so

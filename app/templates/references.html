@@ -2,7 +2,7 @@
 {% block content %}
 <div class="layout refs">
 
-  <details class="panel ref-panel" id="panel-teams">
+  <details class="panel ref-panel" id="panel-teams" open>
     <summary>Команды</summary>
     <div class="panel-body">
       <div class="ref-list">
@@ -28,7 +28,7 @@
     </div>
   </details>
 
-  <details class="panel ref-panel" id="panel-stands">
+  <details class="panel ref-panel" id="panel-stands" open>
     <summary>Стенды</summary>
     <div class="panel-body">
       <div class="ref-list">
@@ -58,7 +58,7 @@
     </div>
   </details>
 
-  <details class="panel ref-panel" id="panel-test-names">
+  <details class="panel ref-panel" id="panel-test-names" open>
     <summary>Имена тестов</summary>
     <div class="panel-body">
       <div class="ref-list">
@@ -107,7 +107,7 @@
     </div>
   </details>
 
-  <details class="panel ref-panel" id="panel-datasets">
+  <details class="panel ref-panel" id="panel-datasets" open>
     <summary>Датасеты</summary>
     <div class="panel-body">
       <div class="ref-list">
@@ -207,11 +207,18 @@
   }
 
   (function restoreOpenState() {
+    // No saved state yet (first visit / cleared storage): keep the
+    // server-rendered defaults (top panels open, nested groups closed)
+    // instead of collapsing everything.
+    var raw;
+    try { raw = sessionStorage.getItem(OPEN_STATE_KEY); } catch (e) { raw = null; }
+    if (raw === null) return;
     var openIds;
-    try { openIds = JSON.parse(sessionStorage.getItem(OPEN_STATE_KEY) || "[]"); } catch (e) { openIds = []; }
-    openIds.forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el && el.tagName === "DETAILS") el.open = true;
+    try { openIds = JSON.parse(raw); } catch (e) { openIds = []; }
+    var openSet = {};
+    openIds.forEach(function (id) { openSet[id] = true; });
+    document.querySelectorAll("details[id]").forEach(function (el) {
+      el.open = !!openSet[el.id];
     });
   })();
 
@@ -286,25 +293,22 @@
   // Delegated listeners below go on `document`/`document.body`, which — unlike
   // the page content above — persist across hx-boost navigations (a boosted
   // nav swaps <body>'s innerHTML and re-runs this script, but never
-  // recreates body/document themselves). Re-registering a plain closure each
-  // time would stack duplicate listeners (e.g. one click firing the delete
-  // confirm dialog twice) while an old listener's closures (standModal,
-  // startEdit, ...) would still point at DOM nodes from a previous, now
-  // discarded render. Stashing the handler on `window` and swapping it out
-  // keeps exactly one listener alive, always bound to the current render.
-  if (window.__refsKeydownHandler) {
-    document.removeEventListener("keydown", window.__refsKeydownHandler);
-  }
-  window.__refsKeydownHandler = function (e) {
+  // recreates body/document themselves). bindPersistent (app.js) swaps the
+  // listener out rather than stacking a duplicate each render.
+  window.bindPersistent(document, "keydown", "__refsKeydownHandler", function (e) {
     if (e.key === "Escape") closeStandModal();
-  };
-  document.addEventListener("keydown", window.__refsKeydownHandler);
+  });
 
   // --- delete + inline edit + stand-team unlink + modal, via delegation ---
-  if (window.__refsClickHandler) {
-    document.body.removeEventListener("click", window.__refsClickHandler);
-  }
-  window.__refsClickHandler = function (e) {
+  window.bindPersistent(document.body, "click", "__refsClickHandler", function (e) {
+    // Stand rows are a <summary> (accordion toggle for the team-chip list).
+    // startEdit() injects its inputs directly into that <summary>, so a
+    // plain click to reposition the cursor — matching none of the branches
+    // below — would otherwise fall through to the native details-toggle and
+    // collapse the row mid-edit.
+    var editingSummary = e.target.closest('summary.ref-row[data-editing="1"]');
+    if (editingSummary) e.preventDefault();
+
     var modalTrigger = e.target.closest('.modal-trigger[data-modal="stand-modal"]');
     if (modalTrigger) {
       e.preventDefault();
@@ -375,8 +379,7 @@
       saveEdit(row3);
       return;
     }
-  };
-  document.body.addEventListener("click", window.__refsClickHandler);
+  });
 
   function startEdit(row) {
     row.dataset.editing = "1";
