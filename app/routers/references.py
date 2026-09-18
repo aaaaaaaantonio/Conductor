@@ -100,6 +100,18 @@ def link_team_stand(
     return Response(status_code=204)
 
 
+@router.delete("/team-stand-links/{team_id}/{stand_id}", status_code=204)
+def unlink_team_stand(
+    team_id: int, stand_id: int, session: Session = Depends(get_session)
+) -> Response:
+    link = session.get(TeamStandLink, (team_id, stand_id))
+    if link is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    session.delete(link)
+    session.commit()
+    return Response(status_code=204)
+
+
 @router.get("/fragments/stands", response_class=HTMLResponse)
 def stand_options_fragment(
     request: Request, team_id: int, session: Session = Depends(get_session)
@@ -174,11 +186,36 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     test_name_by_id: dict[Optional[int], ReferenceItem] = {t.id: t for t in test_names}
 
     links = list(session.exec(select(TeamStandLink)).all())
-    stand_team_names: dict[int, list[str]] = defaultdict(list)
+    stand_teams: dict[int, list[ReferenceItem]] = defaultdict(list)
     for link in links:
         team = team_by_id.get(link.team_id)
-        if team is not None:
-            stand_team_names[link.stand_id].append(team.value)
+        if team is not None and link.stand_id is not None:
+            stand_teams[link.stand_id].append(team)
+
+    tests_by_team_id: dict[int, list[ReferenceItem]] = defaultdict(list)
+    for tn in test_names:
+        if tn.parent_id is not None:
+            tests_by_team_id[tn.parent_id].append(tn)
+    tests_by_team = [
+        (team, tests_by_team_id[team.id])
+        for team in sorted(teams, key=lambda t: t.value)
+        if team.id in tests_by_team_id
+    ]
+
+    datasets_by_test_id: dict[int, list[ReferenceItem]] = defaultdict(list)
+    for ds in datasets:
+        if ds.parent_id is not None:
+            datasets_by_test_id[ds.parent_id].append(ds)
+
+    datasets_by_team = []
+    for team, tests in tests_by_team:
+        team_tests = [
+            (tn, datasets_by_test_id[tn.id])
+            for tn in tests
+            if tn.id in datasets_by_test_id
+        ]
+        if team_tests:
+            datasets_by_team.append((team, team_tests))
 
     return templates.TemplateResponse(
         request,
@@ -188,7 +225,9 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
             "stands": stands,
             "test_names": test_names,
             "datasets": datasets,
-            "stand_team_names": stand_team_names,
+            "stand_teams": stand_teams,
+            "tests_by_team": tests_by_team,
+            "datasets_by_team": datasets_by_team,
             "team_by_id": team_by_id,
             "test_name_by_id": test_name_by_id,
         },

@@ -157,6 +157,35 @@ body{
 .ref-checks{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; font-size:.82rem}
 .ref-checks label{display:flex; align-items:center; gap:5px}
 
+/* references: accordion panels */
+.ref-panel{padding:0}
+.ref-panel > summary{
+  list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; padding:16px;
+  font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); font-weight:600;
+}
+.ref-panel > summary::-webkit-details-marker{display:none}
+.ref-panel > summary::marker{content:""}
+.ref-panel > summary::before{content:"▸"; font-size:.7rem; color:var(--ink-faint)}
+.ref-panel[open] > summary::before{content:"▾"}
+.ref-panel > summary:hover{color:var(--ink)}
+.ref-panel > .panel-body{padding:0 16px 16px}
+
+.stand-row, .team-tests-group, .test-datasets-group{border-radius:6px; margin-bottom:2px}
+.stand-row > summary.ref-row, .team-tests-group > summary.ref-row, .test-datasets-group > summary.ref-row{list-style:none; cursor:pointer}
+.stand-row > summary.ref-row::-webkit-details-marker, .team-tests-group > summary.ref-row::-webkit-details-marker, .test-datasets-group > summary.ref-row::-webkit-details-marker{display:none}
+.stand-row > summary.ref-row::marker, .team-tests-group > summary.ref-row::marker, .test-datasets-group > summary.ref-row::marker{content:""}
+.stand-row > summary.ref-row .ref-label::before, .team-tests-group > summary.ref-row .ref-label::before, .test-datasets-group > summary.ref-row .ref-label::before{content:"▸ "; font-size:.7rem; color:var(--ink-faint)}
+.stand-row[open] > summary.ref-row .ref-label::before, .team-tests-group[open] > summary.ref-row .ref-label::before, .test-datasets-group[open] > summary.ref-row .ref-label::before{content:"▾ "}
+.stand-row[open] > summary.ref-row, .team-tests-group[open] > summary.ref-row, .test-datasets-group[open] > summary.ref-row{background:var(--page)}
+.stand-teams{display:flex; flex-wrap:wrap; gap:6px; padding:8px 8px 12px 22px}
+.team-tests-list{padding:2px 4px 8px 18px}
+.team-tests-list .ref-empty{padding:4px 8px}
+.team-tests-list .test-datasets-group{margin-left:0}
+
+.team-chip{display:inline-flex; align-items:center; gap:2px; background:var(--page); border:1px solid var(--line); border-radius:999px; padding:3px 4px 3px 10px; font-size:.78rem}
+.team-chip-remove{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.72rem; padding:2px 7px; border-radius:999px; line-height:1}
+.team-chip-remove:hover{background:var(--status-fail-bg); color:var(--status-fail)}
+
 /* modal: test launch card */
 .modal-overlay{
   display:none; position:fixed; inset:0; background:rgba(10,14,12,.5); backdrop-filter:blur(2px);

@@ -2,143 +2,220 @@
 {% block content %}
 <div class="layout refs">
 
-  <div class="panel">
-    <h2>Команды</h2>
-    <div class="ref-list">
-      {% for team in teams %}
-        <div class="ref-row" data-id="{{ team.id }}" data-value="{{ team.value }}">
-          <span class="ref-label">{{ team.value }}</span>
-          <span class="ref-actions">
-            <button type="button" class="ref-edit">✎</button>
-            <button type="button" class="ref-del" data-delete-url="/api/references/{{ team.id }}">✕</button>
-          </span>
-        </div>
-      {% else %}
-        <div class="ref-empty">Пока нет ни одной команды</div>
-      {% endfor %}
-    </div>
-    <form class="ref-form" data-create-category="team">
-      <div class="field">
-        <label for="new-team-value">Название команды</label>
-        <input id="new-team-value" name="value" type="text" required>
-      </div>
-      <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
-    </form>
-  </div>
-
-  <div class="panel">
-    <h2>Стенды</h2>
-    <div class="ref-list">
-      {% for stand in stands %}
-        <div class="ref-row" data-id="{{ stand.id }}" data-value="{{ stand.value }}">
-          <span class="ref-label">{{ stand.value }}
-            {% set linked = stand_team_names.get(stand.id, []) %}
-            {% if linked %}<span class="ref-meta">&middot; {{ linked | join(', ') }}</span>{% endif %}
-          </span>
-          <span class="ref-actions">
-            <button type="button" class="ref-edit">✎</button>
-            <button type="button" class="ref-del" data-delete-url="/api/references/{{ stand.id }}">✕</button>
-          </span>
-        </div>
-      {% else %}
-        <div class="ref-empty">Пока нет ни одного стенда</div>
-      {% endfor %}
-    </div>
-    <form class="ref-form" data-create-category="stand" id="new-stand-form">
-      <div class="field">
-        <label for="new-stand-value">Название стенда</label>
-        <input id="new-stand-value" name="value" type="text" required>
-      </div>
-      <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
-    </form>
-    {% if teams %}
-      <div class="section-label" style="margin-top:12px">Привязать команды к новому стенду</div>
-      <div class="ref-checks" id="new-stand-teams">
+  <details class="panel ref-panel" id="panel-teams">
+    <summary>Команды</summary>
+    <div class="panel-body">
+      <div class="ref-list">
         {% for team in teams %}
-          <label><input type="checkbox" value="{{ team.id }}">{{ team.value }}</label>
+          <div class="ref-row" data-id="{{ team.id }}" data-value="{{ team.value }}">
+            <span class="ref-label">{{ team.value }}</span>
+            <span class="ref-actions">
+              <button type="button" class="ref-edit">✎</button>
+              <button type="button" class="ref-del" data-delete-url="/api/references/{{ team.id }}">✕</button>
+            </span>
+          </div>
+        {% else %}
+          <div class="ref-empty">Пока нет ни одной команды</div>
         {% endfor %}
       </div>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>Имена тестов</h2>
-    <div class="ref-list">
-      {% for tn in test_names %}
-        <div class="ref-row" data-id="{{ tn.id }}" data-value="{{ tn.value }}" data-parent="{{ tn.parent_id or '' }}" data-command="{{ tn.command or '' }}">
-          <span class="ref-label">{{ tn.value }} <span class="ref-meta">&middot; {{ team_by_id.get(tn.parent_id).value if team_by_id.get(tn.parent_id) else '—' }}{% if tn.command %} &middot; <code>{{ tn.command }}</code>{% endif %}</span></span>
-          <span class="ref-actions">
-            <button type="button" class="ref-edit">✎</button>
-            <button type="button" class="ref-del" data-delete-url="/api/references/{{ tn.id }}">✕</button>
-          </span>
-        </div>
-      {% else %}
-        <div class="ref-empty">Пока нет ни одного имени теста</div>
-      {% endfor %}
-    </div>
-    {% if teams %}
-      <form class="ref-form" data-create-category="test_name" data-parent-select="#new-test-name-team">
+      <form class="ref-form" data-create-category="team">
         <div class="field">
-          <label for="new-test-name-team">Команда</label>
-          <select id="new-test-name-team" required>
-            {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="field">
-          <label for="new-test-name-value">Имя теста</label>
-          <input id="new-test-name-value" name="value" type="text" required>
-        </div>
-        <div class="field">
-          <label for="new-test-name-command">Команда запуска</label>
-          <input id="new-test-name-command" name="command" type="text" placeholder="напр. mvn test -Dtest=Smoke">
+          <label for="new-team-value">Название команды</label>
+          <input id="new-team-value" name="value" type="text" required>
         </div>
         <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
       </form>
-    {% else %}
-      <div class="ref-empty">Сначала добавьте команду</div>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>Датасеты</h2>
-    <div class="ref-list">
-      {% for ds in datasets %}
-        <div class="ref-row" data-id="{{ ds.id }}" data-value="{{ ds.value }}" data-parent="{{ ds.parent_id or '' }}">
-          <span class="ref-label">{{ ds.value }} <span class="ref-meta">&middot; {{ test_name_by_id.get(ds.parent_id).value if test_name_by_id.get(ds.parent_id) else '—' }}</span></span>
-          <span class="ref-actions">
-            <button type="button" class="ref-edit">✎</button>
-            <button type="button" class="ref-del" data-delete-url="/api/references/{{ ds.id }}">✕</button>
-          </span>
-        </div>
-      {% else %}
-        <div class="ref-empty">Пока нет ни одного датасета</div>
-      {% endfor %}
     </div>
-    {% if test_names %}
-      <form class="ref-form" data-create-category="dataset" data-parent-select="#new-dataset-test-name">
-        <div class="field">
-          <label for="new-dataset-test-name">Тест</label>
-          <select id="new-dataset-test-name" required>
-            {% for tn in test_names %}<option value="{{ tn.id }}">{{ tn.value }}</option>{% endfor %}
-          </select>
-        </div>
-        <div class="field">
-          <label for="new-dataset-value">Датасет</label>
-          <input id="new-dataset-value" name="value" type="text" required>
-        </div>
-        <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
-      </form>
-    {% else %}
-      <div class="ref-empty">Сначала добавьте имя теста</div>
-    {% endif %}
-  </div>
+  </details>
+
+  <details class="panel ref-panel" id="panel-stands">
+    <summary>Стенды</summary>
+    <div class="panel-body">
+      <div class="ref-list">
+        {% for stand in stands %}
+          <details class="stand-row" id="stand-{{ stand.id }}">
+            <summary class="ref-row" data-id="{{ stand.id }}" data-value="{{ stand.value }}">
+              <span class="ref-label">{{ stand.value }}</span>
+              <span class="ref-actions">
+                <button type="button" class="ref-edit">✎</button>
+                <button type="button" class="ref-del" data-delete-url="/api/references/{{ stand.id }}">✕</button>
+              </span>
+            </summary>
+            <div class="stand-teams">
+              {% set linked = stand_teams.get(stand.id, []) %}
+              {% for team in linked %}
+                <span class="team-chip">{{ team.value }}<button type="button" class="team-chip-remove" data-team-id="{{ team.id }}" data-stand-id="{{ stand.id }}" title="Отвязать команду">✕</button></span>
+              {% else %}
+                <span class="ref-empty">Не привязан ни к одной команде</span>
+              {% endfor %}
+            </div>
+          </details>
+        {% else %}
+          <div class="ref-empty">Пока нет ни одного стенда</div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn-primary modal-trigger" data-modal="stand-modal" style="width:auto">+ Добавить стенд</button>
+    </div>
+  </details>
+
+  <details class="panel ref-panel" id="panel-test-names">
+    <summary>Имена тестов</summary>
+    <div class="panel-body">
+      <div class="ref-list">
+        {% for team, tests in tests_by_team %}
+          <details class="team-tests-group" id="team-tests-{{ team.id }}">
+            <summary class="ref-row">
+              <span class="ref-label">{{ team.value }} <span class="ref-meta">&middot; {{ tests | length }}</span></span>
+            </summary>
+            <div class="team-tests-list">
+              {% for tn in tests %}
+                <div class="ref-row" data-id="{{ tn.id }}" data-value="{{ tn.value }}" data-parent="{{ tn.parent_id or '' }}" data-command="{{ tn.command or '' }}" data-command-label="Команда запуска">
+                  <span class="ref-label">{{ tn.value }}{% if tn.command %} <span class="ref-meta">&middot; <code>{{ tn.command }}</code></span>{% endif %}</span>
+                  <span class="ref-actions">
+                    <button type="button" class="ref-edit">✎</button>
+                    <button type="button" class="ref-del" data-delete-url="/api/references/{{ tn.id }}">✕</button>
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
+          </details>
+        {% else %}
+          <div class="ref-empty">Пока нет ни одного имени теста</div>
+        {% endfor %}
+      </div>
+      {% if teams %}
+        <form class="ref-form" data-create-category="test_name" data-parent-select="#new-test-name-team">
+          <div class="field">
+            <label for="new-test-name-team">Команда</label>
+            <select id="new-test-name-team" required>
+              {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="new-test-name-value">Имя теста</label>
+            <input id="new-test-name-value" name="value" type="text" required>
+          </div>
+          <div class="field">
+            <label for="new-test-name-command">Команда запуска</label>
+            <input id="new-test-name-command" name="command" type="text" placeholder="напр. mvn test -Dtest=Smoke">
+          </div>
+          <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
+        </form>
+      {% else %}
+        <div class="ref-empty">Сначала добавьте команду</div>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="panel ref-panel" id="panel-datasets">
+    <summary>Датасеты</summary>
+    <div class="panel-body">
+      <div class="ref-list">
+        {% for team, team_tests in datasets_by_team %}
+          <details class="team-tests-group" id="team-datasets-{{ team.id }}">
+            <summary class="ref-row">
+              <span class="ref-label">{{ team.value }}</span>
+            </summary>
+            <div class="team-tests-list">
+              {% for tn, tn_datasets in team_tests %}
+                <details class="test-datasets-group" id="test-datasets-{{ tn.id }}">
+                  <summary class="ref-row">
+                    <span class="ref-label">{{ tn.value }} <span class="ref-meta">&middot; {{ tn_datasets | length }}</span></span>
+                  </summary>
+                  <div class="team-tests-list">
+                    {% for ds in tn_datasets %}
+                      <div class="ref-row" data-id="{{ ds.id }}" data-value="{{ ds.value }}" data-parent="{{ ds.parent_id or '' }}" data-command="{{ ds.command or '' }}">
+                        <span class="ref-label">{{ ds.value }}{% if ds.command %} <span class="ref-meta">&middot; <code>{{ ds.command }}</code></span>{% endif %}</span>
+                        <span class="ref-actions">
+                          <button type="button" class="ref-edit">✎</button>
+                          <button type="button" class="ref-del" data-delete-url="/api/references/{{ ds.id }}">✕</button>
+                        </span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </details>
+              {% endfor %}
+            </div>
+          </details>
+        {% else %}
+          <div class="ref-empty">Пока нет ни одного датасета</div>
+        {% endfor %}
+      </div>
+      {% if test_names %}
+        <form class="ref-form" data-create-category="dataset" data-parent-select="#new-dataset-test-name">
+          <div class="field">
+            <label for="new-dataset-test-name">Тест</label>
+            <select id="new-dataset-test-name" required>
+              {% for tn in test_names %}<option value="{{ tn.id }}">{{ tn.value }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="new-dataset-value">Название датасета</label>
+            <input id="new-dataset-value" name="value" type="text" required>
+          </div>
+          <div class="field">
+            <label for="new-dataset-command">Значение</label>
+            <input id="new-dataset-command" name="command" type="text" placeholder="напр. путь или содержимое датасета">
+          </div>
+          <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
+        </form>
+      {% else %}
+        <div class="ref-empty">Сначала добавьте имя теста</div>
+      {% endif %}
+    </div>
+  </details>
 
 </div>
+
+<div class="modal-overlay" id="stand-modal">
+  <div class="modal-dialog" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <span class="modal-eyebrow">Новый стенд</span>
+      <button class="modal-close" type="button" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="new-stand-value">Название стенда</label>
+        <input id="new-stand-value" type="text" required>
+      </div>
+      {% if teams %}
+        <div class="section-label" style="margin-top:14px">Команды</div>
+        <div class="ref-checks" id="new-stand-teams">
+          {% for team in teams %}
+            <label><input type="checkbox" value="{{ team.id }}">{{ team.value }}</label>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary modal-cancel" type="button">Отмена</button>
+      <button class="btn-primary" type="button" id="stand-modal-submit">Добавить</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
-  function reload() { location.reload(); }
+  var OPEN_STATE_KEY = "refs-open-panels";
 
-  // --- create forms ---
+  function reload() {
+    var openIds = Array.prototype.slice.call(
+      document.querySelectorAll("details[id][open]")
+    ).map(function (d) { return d.id; });
+    try { sessionStorage.setItem(OPEN_STATE_KEY, JSON.stringify(openIds)); } catch (e) {}
+    location.reload();
+  }
+
+  (function restoreOpenState() {
+    var openIds;
+    try { openIds = JSON.parse(sessionStorage.getItem(OPEN_STATE_KEY) || "[]"); } catch (e) { openIds = []; }
+    openIds.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.tagName === "DETAILS") el.open = true;
+    });
+  })();
+
+  // --- create forms (team / test_name / dataset) ---
   document.querySelectorAll("form[data-create-category]").forEach(function (form) {
     form.addEventListener("submit", function (event) {
       event.preventDefault();
@@ -157,25 +234,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }).then(function (resp) {
-        if (resp.ok) {
-          if (category === "stand") {
-            var checked = Array.prototype.slice.call(
-              document.querySelectorAll("#new-stand-teams input:checked")
-            ).map(function (el) { return Number(el.value); });
-            resp.json().then(function (stand) {
-              Promise.all(checked.map(function (teamId) {
-                return fetch("/api/references/team-stand-links", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ team_id: teamId, stand_id: stand.id }),
-                });
-              })).then(reload);
-            });
-            return;
-          }
-          reload();
-          return;
-        }
+        if (resp.ok) { reload(); return; }
         resp.json().then(function (body) {
           alert((body && body.detail) || "Не удалось добавить (" + resp.status + ")");
         }).catch(function () {
@@ -187,10 +246,100 @@
     });
   });
 
-  // --- delete + inline edit, via delegation so it survives DOM churn ---
-  document.body.addEventListener("click", function (e) {
+  // --- new-stand modal ---
+  var standModal = document.getElementById("stand-modal");
+
+  function closeStandModal() { standModal.classList.remove("open"); }
+
+  function submitStandModal() {
+    var valueInput = document.getElementById("new-stand-value");
+    var value = valueInput.value.trim();
+    if (!value) { valueInput.focus(); return; }
+    var checked = Array.prototype.slice.call(
+      document.querySelectorAll("#new-stand-teams input:checked")
+    ).map(function (el) { return Number(el.value); });
+
+    fetch("/api/references", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: "stand", value: value, parent_id: null }),
+    }).then(function (resp) {
+      if (!resp.ok) {
+        return resp.json().then(function (body) {
+          throw new Error((body && body.detail) || "Не удалось добавить (" + resp.status + ")");
+        });
+      }
+      return resp.json();
+    }).then(function (stand) {
+      return Promise.all(checked.map(function (teamId) {
+        return fetch("/api/references/team-stand-links", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ team_id: teamId, stand_id: stand.id }),
+        });
+      }));
+    }).then(reload).catch(function (err) {
+      alert(err.message || String(err));
+    });
+  }
+
+  // Delegated listeners below go on `document`/`document.body`, which — unlike
+  // the page content above — persist across hx-boost navigations (a boosted
+  // nav swaps <body>'s innerHTML and re-runs this script, but never
+  // recreates body/document themselves). Re-registering a plain closure each
+  // time would stack duplicate listeners (e.g. one click firing the delete
+  // confirm dialog twice) while an old listener's closures (standModal,
+  // startEdit, ...) would still point at DOM nodes from a previous, now
+  // discarded render. Stashing the handler on `window` and swapping it out
+  // keeps exactly one listener alive, always bound to the current render.
+  if (window.__refsKeydownHandler) {
+    document.removeEventListener("keydown", window.__refsKeydownHandler);
+  }
+  window.__refsKeydownHandler = function (e) {
+    if (e.key === "Escape") closeStandModal();
+  };
+  document.addEventListener("keydown", window.__refsKeydownHandler);
+
+  // --- delete + inline edit + stand-team unlink + modal, via delegation ---
+  if (window.__refsClickHandler) {
+    document.body.removeEventListener("click", window.__refsClickHandler);
+  }
+  window.__refsClickHandler = function (e) {
+    var modalTrigger = e.target.closest('.modal-trigger[data-modal="stand-modal"]');
+    if (modalTrigger) {
+      e.preventDefault();
+      standModal.classList.add("open");
+      return;
+    }
+
+    if (e.target === standModal || e.target.closest("#stand-modal .modal-close, #stand-modal .modal-cancel")) {
+      closeStandModal();
+      return;
+    }
+
+    if (e.target.closest("#stand-modal-submit")) {
+      submitStandModal();
+      return;
+    }
+
+    var chipRemove = e.target.closest(".team-chip-remove");
+    if (chipRemove) {
+      e.preventDefault();
+      fetch(
+        "/api/references/team-stand-links/" + chipRemove.dataset.teamId + "/" + chipRemove.dataset.standId,
+        { method: "DELETE" }
+      ).then(function (resp) {
+        if (resp.ok) { reload(); return; }
+        alert("Не удалось отвязать (" + resp.status + ")");
+      }).catch(function (err) {
+        alert("Не удалось отвязать: " + err);
+      });
+      return;
+    }
+
     var delBtn = e.target.closest(".ref-del");
     if (delBtn) {
+      e.preventDefault();
       if (!confirm("Удалить запись?")) return;
       fetch(delBtn.dataset.deleteUrl, { method: "DELETE" }).then(function (resp) {
         if (resp.ok) { reload(); return; }
@@ -203,6 +352,7 @@
 
     var editBtn = e.target.closest(".ref-edit");
     if (editBtn) {
+      e.preventDefault();
       var row = editBtn.closest(".ref-row");
       if (row.dataset.editing) return;
       startEdit(row);
@@ -211,6 +361,7 @@
 
     var cancelBtn = e.target.closest(".ref-edit-cancel");
     if (cancelBtn) {
+      e.preventDefault();
       var row2 = cancelBtn.closest(".ref-row");
       row2.innerHTML = row2.dataset.originalHtml;
       delete row2.dataset.editing;
@@ -219,11 +370,13 @@
 
     var saveBtn = e.target.closest(".ref-edit-save");
     if (saveBtn) {
+      e.preventDefault();
       var row3 = saveBtn.closest(".ref-row");
       saveEdit(row3);
       return;
     }
-  });
+  };
+  document.body.addEventListener("click", window.__refsClickHandler);
 
   function startEdit(row) {
     row.dataset.editing = "1";
@@ -240,7 +393,7 @@
       var commandInput = document.createElement("input");
       commandInput.type = "text";
       commandInput.className = "ref-edit-command";
-      commandInput.placeholder = "Команда запуска";
+      commandInput.placeholder = row.dataset.commandLabel || "Значение";
       commandInput.value = row.dataset.command || "";
       row.appendChild(commandInput);
     }

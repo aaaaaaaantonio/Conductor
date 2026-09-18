@@ -4,7 +4,7 @@
   <div class="panel">
     <h2>Команды и тесты</h2>
     {% for team in teams %}
-      <div class="team-group{% if loop.first %} open{% endif %}">
+      <div class="team-group">
         <button type="button" class="team-toggle"><span class="chevron">▸</span>{{ team.value }}</button>
         <div class="team-body">
           <div class="team-body-inner">
