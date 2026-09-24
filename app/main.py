@@ -14,7 +14,7 @@ from app.routers.launch_java import router as launch_java_router
 
 
 def recover_stale_jobs(session: Session) -> None:
-    statement = select(Job).where(Job.status.in_(["queued", "running"]))
+    statement = select(Job).where(Job.status.in_(["queued", "running", "triggering"]))
     for job in session.exec(statement).all():
         job.status = "failed"
         session.add(job)

@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import httpx
+from sqlmodel import select
 
 from app.execution.broadcaster import broadcaster
 from app.models.jobs import Job
@@ -86,6 +87,7 @@ def test_python_launch_response_has_no_oob_wrapper(client, session):
     assert resp.status_code == 200
     assert "hx-swap-oob" not in resp.text
     assert 'id="job-list"' not in resp.text
+    assert "Сборка отправлена в Jenkins" not in resp.text
 
 
 async def test_stream_renders_escaped_labeled_log_line_and_json_status():
@@ -152,7 +154,7 @@ def test_python_launch_jenkins_mode_triggers_build(client, session, monkeypatch)
 
     mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(
-        "app.execution.runner.httpx.AsyncClient", lambda *a, **kw: mock_client
+        "app.execution.jenkins_launch.httpx.AsyncClient", lambda *a, **kw: mock_client
     )
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
@@ -169,11 +171,16 @@ def test_python_launch_jenkins_mode_triggers_build(client, session, monkeypatch)
     )
     assert resp.status_code == 200
 
-    job_id = int(resp.text.split('id="job-')[1].split('"')[0])
-    job = session.get(Job, job_id)
+    job = session.exec(select(Job)).one()
     session.refresh(job)
     assert job.status == "triggered"
     assert job.jenkins_build_id == "https://jenkins/queue/item/5/"
+
+    # The reply replaces the log panel instead of the #job-list.
+    assert resp.headers["HX-Retarget"] == "#job-log-body"
+    assert 'class="job-row' not in resp.text
+    assert "Сборка отправлена в Jenkins" in resp.text
+    assert 'href="https://jenkins/queue/item/5/"' in resp.text
 
 
 def test_startup_marks_stale_running_jobs_failed(session):
@@ -181,11 +188,17 @@ def test_startup_marks_stale_running_jobs_failed(session):
     from app.models.jobs import Job
 
     stale = Job(source="python", status="running", params_json="{}")
+    stale_trigger = Job(source="java", status="triggering", params_json="{}")
     session.add(stale)
+    session.add(stale_trigger)
     session.commit()
     session.refresh(stale)
+    session.refresh(stale_trigger)
 
     recover_stale_jobs(session)
 
     session.refresh(stale)
+    session.refresh(stale_trigger)
     assert stale.status == "failed"
+    assert stale_trigger.status == "failed"
+

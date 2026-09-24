@@ -1,0 +1,6 @@
+{# Reply to a Jenkins-mode launch, shown in the log panel. `message`/`url`
+   come from launch_in_jenkins (app/execution/jenkins_launch.py). #}
+<div class="launch-msg{% if failed %} failed{% endif %}">
+  <div class="launch-msg-title">{{ message }}</div>
+  {% if url %}<a class="launch-msg-link" href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a>{% endif %}
+</div>

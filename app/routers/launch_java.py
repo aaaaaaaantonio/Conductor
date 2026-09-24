@@ -1,14 +1,13 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
-from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES
+from app.config import JENKINS_JOB_NAMES
 from app.db import get_session
 from app.templating import templates
-from app.execution.runner import start_jenkins_job_with_own_session
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
 
@@ -25,7 +24,6 @@ def java_tab(request: Request, session: Session = Depends(get_session)) -> HTMLR
 @router.post("/java/launch", response_class=HTMLResponse)
 async def java_launch(
     request: Request,
-    background_tasks: BackgroundTasks,
     team_id: int = Form(...),
     stand_id: int = Form(...),
     regression_type: str = Form(...),
@@ -47,20 +45,16 @@ async def java_launch(
         "test_name_id": test_name_id,
         "test_command": test_command,
     }
-    job = Job(source="java", status="queued", params_json=json.dumps(params))
+    # "triggering" keeps Jenkins jobs out of the active job list (queued/running).
+    job = Job(source="java", status="triggering", params_json=json.dumps(params))
     session.add(job)
     session.commit()
     session.refresh(job)
 
     jenkins_params = {k: v for k, v in params.items() if v is not None}
-    background_tasks.add_task(
-        start_jenkins_job_with_own_session,
-        job.id,
-        JENKINS_BASE_URL,
-        JENKINS_JOB_NAMES["java"],
-        jenkins_params,
+
+    from app.routers.jobs import jenkins_launch_response
+
+    return await jenkins_launch_response(
+        request, session, job, JENKINS_JOB_NAMES["java"], jenkins_params
     )
-
-    from app.routers.jobs import job_list_fragment
-
-    return job_list_fragment(request, session)

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="layout python" hx-ext="sse" sse-connect="/jobs/stream">
+<div class="layout python no-jobs">
   <div class="panel">
     <h2>Параметры запуска</h2>
-    <form hx-post="/java/launch" hx-target="#job-list" hx-swap="innerHTML" hx-disabled-elt="#j-submit">
+    <form hx-post="/java/launch" hx-target="#job-log-body" hx-swap="innerHTML" hx-disabled-elt="#j-submit">
       <div class="field">
         <label for="j-team-select">Команда</label>
         <select name="team_id" id="j-team-select">
@@ -55,13 +55,8 @@
   <div class="panel log-panel">
     <h2>Лог</h2>
     <div id="job-log-body">
-      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу справа, чтобы увидеть лог</div>
+      <div class="empty-log"><span class="glyph">▤</span>Здесь появится сообщение о запуске</div>
     </div>
-  </div>
-
-  <div class="panel">
-    <h2>Активные джобы</h2>
-    <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
   </div>
 </div>
 {% endblock %}

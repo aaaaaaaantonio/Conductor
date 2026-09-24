@@ -33,6 +33,7 @@ body{
 /* shared layout */
 .layout{display:grid; gap:16px; align-items:start}
 .layout.python{grid-template-columns:280px 1fr 260px}
+.layout.python.no-jobs{grid-template-columns:280px 1fr}
 .layout.agents{grid-template-columns:220px 1fr 260px}
 .layout.refs{grid-template-columns:repeat(2, minmax(280px, 1fr))}
 @media (max-width:960px){ .layout.python, .layout.agents{grid-template-columns:1fr} }
@@ -114,6 +115,14 @@ body{
 }
 .log .ln{color:var(--ink-faint); margin-right:10px; font-variant-numeric:tabular-nums; user-select:none}
 .log .log-empty-hint{color:var(--ink-faint)}
+
+.launch-msg{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  padding:32px 16px; text-align:center; font-size:.85rem;
+}
+.launch-msg-title{font-weight:600; color:var(--ink)}
+.launch-msg.failed .launch-msg-title{color:var(--status-fail)}
+.launch-msg-link{color:var(--accent); font-weight:600; word-break:break-all}
 
 /* agent tree — accordion by team */
 .team-group{border-bottom:1px solid var(--line)}

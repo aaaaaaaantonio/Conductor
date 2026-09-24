@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.templating import templates
 from app.execution.broadcaster import broadcaster
+from app.execution.jenkins_launch import LaunchResult, launch_in_jenkins
 from app.models.jobs import Job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -20,6 +21,29 @@ def job_list_fragment(request: Request, session: Session = Depends(get_session))
     statement = select(Job).where(Job.status.in_(["queued", "running"]))
     jobs = list(session.exec(statement).all())
     return templates.TemplateResponse(request, "fragments/job_list.html", {"jobs": jobs})
+
+
+async def jenkins_launch_response(
+    request: Request, session: Session, job: Job, job_name: str, params: dict
+) -> HTMLResponse:
+    try:
+        result = await launch_in_jenkins(job.source, job_name, params)
+        job.status = "triggered"
+        job.jenkins_build_id = result.url
+    except Exception as exc:
+        job.status = "failed"
+        result = LaunchResult(message=f"Не удалось отправить запуск в Jenkins: {exc}")
+    session.add(job)
+    session.commit()
+
+    # The Python tab's launch form targets #job-list (VM runs refresh it); a
+    # Jenkins launch shows only the reply, so swap it into the log panel.
+    return templates.TemplateResponse(
+        request,
+        "fragments/jenkins_launched.html",
+        {"message": result.message, "url": result.url, "failed": job.status == "failed"},
+        headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "innerHTML"},
+    )
 
 
 @router.get("/{job_id}/fragments/log", response_class=HTMLResponse)

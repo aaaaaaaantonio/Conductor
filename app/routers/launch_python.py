@@ -5,11 +5,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
-from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
+from app.config import JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
 from app.db import get_session
 from app.templating import templates
 from app.execution.command_builder import FieldSpec, build_command
-from app.execution.runner import start_jenkins_job_with_own_session, start_local_job_with_own_session
+from app.execution.runner import start_local_job_with_own_session
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
 
@@ -57,7 +57,10 @@ async def python_launch(
         "test_command": test_command,
         "dataset_id": dataset_id,
     }
-    job = Job(source="python", status="queued", params_json=json.dumps(params))
+    # Jenkins jobs start as "triggering" rather than "queued" so they never
+    # show up in the active job list (queued/running) — only VM runs do.
+    status = "triggering" if execution_mode == "jenkins" else "queued"
+    job = Job(source="python", status=status, params_json=json.dumps(params))
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -74,13 +77,12 @@ async def python_launch(
         background_tasks.add_task(start_local_job_with_own_session, job.id, command, LOG_DIR)
     elif execution_mode == "jenkins":
         jenkins_params = {k: v for k, v in params.items() if v is not None}
-        background_tasks.add_task(
-            start_jenkins_job_with_own_session,
-            job.id,
-            JENKINS_BASE_URL,
-            JENKINS_JOB_NAMES["python"],
-            jenkins_params,
-            )
+
+        from app.routers.jobs import jenkins_launch_response
+
+        return await jenkins_launch_response(
+            request, session, job, JENKINS_JOB_NAMES["python"], jenkins_params
+        )
 
     from app.routers.jobs import job_list_fragment
 
