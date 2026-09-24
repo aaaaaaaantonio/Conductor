@@ -7,6 +7,7 @@ from app.models.jobs import Job
 def test_java_tab_renders_without_dataset_field(client):
     resp = client.get("/java")
     assert resp.status_code == 200
+    assert 'hx-target="#job-log-body" hx-swap="afterbegin"' in resp.text
     assert "Java-запуск" in resp.text
     assert "Часть" in resp.text
     assert "dataset" not in resp.text.lower()
@@ -72,6 +73,9 @@ def test_launch_java_jenkins_mode_triggers_build(client, session, monkeypatch):
     assert 'class="job-row' not in resp.text
     assert "Сборка отправлена в Jenkins" in resp.text
     assert 'href="https://jenkins/queue/item/9/"' in resp.text
+    # Prepended to the log panel, so earlier replies on the page stay.
+    assert resp.headers["HX-Reswap"] == "afterbegin"
+    assert f"job #{job.id} · java" in resp.text
 
 
 def test_launch_java_shows_error_when_jenkins_rejects(client, session, monkeypatch):

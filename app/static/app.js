@@ -42,6 +42,16 @@
   document.body.addEventListener("htmx:sseOpen", function () { setSseStatus(true); });
   document.body.addEventListener("htmx:sseError", function () { setSseStatus(false); });
 
+  // A Jenkins launch reply is prepended to the log panel (a per-page feed).
+  // On the Python tab that panel may be showing a VM job's log instead —
+  // clear it first so the reply doesn't land on top of an unrelated log.
+  document.body.addEventListener("htmx:beforeSwap", function (e) {
+    var target = e.detail.target;
+    if (!target || target.id !== "job-log-body") return;
+    if (e.detail.xhr.getResponseHeader("HX-Reswap") !== "afterbegin") return;
+    if (target.querySelector(".log[data-job]")) target.innerHTML = "";
+  });
+
   // Same status -> class mapping as fragments/job_log.html.
   var STATUS_CLASSES = { running: "run", success: "ok", failed: "fail" };
 

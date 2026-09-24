@@ -5,7 +5,7 @@
 <div class="layout python no-jobs">
   <div class="panel">
     <h2>Параметры запуска</h2>
-    <form hx-post="/java/launch" hx-target="#job-log-body" hx-swap="innerHTML" hx-disabled-elt="#j-submit">
+    <form hx-post="/java/launch" hx-target="#job-log-body" hx-swap="afterbegin" hx-disabled-elt="#j-submit">
       <div class="field">
         <label for="j-team-select">Команда</label>
         <select name="team_id" id="j-team-select">
@@ -57,7 +57,7 @@
   <div class="panel log-panel">
     <h2>Лог</h2>
     <div id="job-log-body">
-      <div class="empty-log"><span class="glyph">▤</span>Здесь появится сообщение о запуске</div>
+      <div class="empty-log"><span class="glyph">▤</span>Здесь появятся сообщения о запусках</div>
     </div>
   </div>
 </div>

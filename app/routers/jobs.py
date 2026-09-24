@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -37,12 +38,19 @@ async def jenkins_launch_response(
     session.commit()
 
     # The Python tab's launch form targets #job-list (VM runs refresh it); a
-    # Jenkins launch shows only the reply, so swap it into the log panel.
+    # Jenkins launch only adds its reply to the log panel, newest on top, so
+    # earlier replies on the page stay visible as a feed.
     return templates.TemplateResponse(
         request,
         "fragments/jenkins_launched.html",
-        {"message": result.message, "url": result.url, "failed": job.status == "failed"},
-        headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "innerHTML"},
+        {
+            "job": job,
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "message": result.message,
+            "url": result.url,
+            "failed": job.status == "failed",
+        },
+        headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
     )
 
 

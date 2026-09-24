@@ -197,16 +197,21 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .log .ln{display:inline-block; width:2.4em; margin-right:.8em; text-align:right; text-indent:0; color:var(--term-faint); font-variant-numeric:tabular-nums; user-select:none}
 .log .log-empty-hint{color:#71807a; padding-left:0; text-indent:0}
 
+/* Jenkins launch replies: a feed, newest on top */
+#job-log-body:has(> .launch-msg){overflow-y:auto; max-height:70vh; padding:4px 18px 18px; gap:10px; flex:none}
+#job-log-body:has(> .launch-msg) > .empty-log{display:none}
 .launch-msg{
-  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-  padding:32px 16px; text-align:center;
+  position:relative; display:flex; flex-direction:column; gap:4px; flex-shrink:0;
+  padding:12px 14px 12px 50px; border:1px solid var(--term-line); border-radius:10px; background:rgba(255,255,255,.02);
 }
-.launch-msg::before{content:"↗"; width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:18px;
-  color:var(--term-ok); background:rgba(127,209,156,.12); margin-bottom:4px}
+.launch-msg::before{content:"↗"; position:absolute; left:12px; top:12px; width:26px; height:26px; border-radius:50%;
+  display:grid; place-items:center; font-size:13px; color:var(--term-ok); background:rgba(127,209,156,.12)}
 .launch-msg.failed::before{content:"!"; font-weight:700; color:var(--term-fail); background:rgba(239,138,112,.12)}
-.launch-msg-title{font-weight:600; color:#fff; font-size:15px}
+.launch-msg:first-child{border-color:#2f4a40}
+.launch-msg-meta{font-family:var(--mono); font-size:11.5px; color:#71807a}
+.launch-msg-title{font-weight:600; color:#fff; font-size:14px}
 .launch-msg.failed .launch-msg-title{color:var(--term-fail)}
-.launch-msg-link{color:var(--term-ok); font-family:var(--mono); font-size:13px; word-break:break-all}
+.launch-msg-link{color:var(--term-ok); font-family:var(--mono); font-size:12.5px; word-break:break-all; align-self:flex-start}
 
 @media (prefers-reduced-motion: reduce){
   .dot.run, .btn-primary:disabled::after{animation:none}
