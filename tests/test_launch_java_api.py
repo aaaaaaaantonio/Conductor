@@ -43,7 +43,10 @@ def test_launch_java_creates_queued_job(client, session, monkeypatch):
 
 
 def test_launch_java_jenkins_mode_triggers_build(client, session, monkeypatch):
+    requests: list[httpx.Request] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
         return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/9/"})
 
     mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -68,6 +71,8 @@ def test_launch_java_jenkins_mode_triggers_build(client, session, monkeypatch):
     session.refresh(job)
     assert job.status == "triggered"
     assert job.jenkins_build_id == "https://jenkins/queue/item/9/"
+    # Java builds go to the Java Jenkins job, never the Python one.
+    assert [r.url.path for r in requests] == ["/job/java-tests/buildWithParameters"]
 
     assert resp.headers["HX-Retarget"] == "#job-log-body"
     assert 'class="job-row' not in resp.text

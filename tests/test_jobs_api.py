@@ -149,7 +149,10 @@ def test_python_launch_vm_mode_creates_job_and_returns_list_fragment(client, ses
 
 
 def test_python_launch_jenkins_mode_triggers_build(client, session, monkeypatch):
+    requests: list[httpx.Request] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
         return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/5/"})
 
     mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -175,6 +178,8 @@ def test_python_launch_jenkins_mode_triggers_build(client, session, monkeypatch)
     session.refresh(job)
     assert job.status == "triggered"
     assert job.jenkins_build_id == "https://jenkins/queue/item/5/"
+    # Python builds go to the Python Jenkins job, never the Java one.
+    assert [r.url.path for r in requests] == ["/job/python-tests/buildWithParameters"]
 
     # The reply replaces the log panel instead of the #job-list.
     assert resp.headers["HX-Retarget"] == "#job-log-body"
