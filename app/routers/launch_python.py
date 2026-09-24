@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
-from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES, JENKINS_POLL_INTERVAL_SECONDS, PYTHON_TEST_RUNNER_PATH
+from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
 from app.db import get_session
 from app.templating import templates
 from app.execution.command_builder import FieldSpec, build_command
@@ -80,8 +80,7 @@ async def python_launch(
             JENKINS_BASE_URL,
             JENKINS_JOB_NAMES["python"],
             jenkins_params,
-            poll_interval=JENKINS_POLL_INTERVAL_SECONDS,
-        )
+            )
 
     from app.routers.jobs import job_list_fragment
 

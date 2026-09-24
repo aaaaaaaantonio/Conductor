@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from app.execution.broadcaster import EventBroadcaster
 from app.execution.broadcaster import broadcaster as default_broadcaster
-from app.execution.jenkins_client import poll_build_status, trigger_build
+from app.execution.jenkins_client import trigger_build
 from app.models.jobs import Job
 
 
@@ -102,31 +102,19 @@ async def start_jenkins_job(
     session: Session,
     client: httpx.AsyncClient,
     broadcaster: EventBroadcaster = default_broadcaster,
-    poll_interval: float = 5.0,
 ) -> None:
+    # Fire-and-forget: the build's own progress/result is tracked in Jenkins,
+    # not here — the job is done once Jenkins has accepted the build.
     job = session.get(Job, job_id)
     assert job is not None
 
-    job.status = "running"
-    session.add(job)
-    session.commit()
-    await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": "running"})
-
     try:
-        build_url = await trigger_build(base_url, job_name, params, client)
-        job.jenkins_build_id = build_url
-        session.add(job)
-        session.commit()
-
-        status = "running"
-        while status == "running":
-            await asyncio.sleep(poll_interval)
-            status = await poll_build_status(base_url, build_url, client)
-        job.status = status
+        job.jenkins_build_id = await trigger_build(base_url, job_name, params, client)
+        job.status = "triggered"
     except Exception:
-        # A failure to trigger/poll the build must still land the job in a
+        # A failure to trigger the build must still land the job in a
         # terminal state with a broadcast — otherwise the UI waiting on
-        # job-status hangs forever with status stuck at "running".
+        # job-status keeps showing it as queued forever.
         job.status = "failed"
     finally:
         session.add(job)
@@ -140,7 +128,6 @@ async def start_jenkins_job_with_own_session(
     job_name: str,
     params: dict,
     broadcaster: EventBroadcaster = default_broadcaster,
-    poll_interval: float = 5.0,
 ) -> None:
     """Entry point for BackgroundTasks — opens its own Session and http client.
 
@@ -152,6 +139,4 @@ async def start_jenkins_job_with_own_session(
 
     with Session(db_engine) as session:
         async with httpx.AsyncClient() as client:
-            await start_jenkins_job(
-                job_id, base_url, job_name, params, session, client, broadcaster, poll_interval
-            )
+            await start_jenkins_job(job_id, base_url, job_name, params, session, client, broadcaster)

@@ -31,17 +31,14 @@ def test_launch_java_creates_queued_job(client, session):
     assert "back" in job.params_json
 
 
-def test_launch_java_jenkins_mode_polls_and_marks_success(client, session, monkeypatch):
+def test_launch_java_jenkins_mode_triggers_build(client, session, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/buildWithParameters"):
-            return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/9/"})
-        return httpx.Response(200, json={"building": False, "result": "SUCCESS"})
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/9/"})
 
     mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(
         "app.execution.runner.httpx.AsyncClient", lambda *a, **kw: mock_client
     )
-    monkeypatch.setattr("app.routers.launch_java.JENKINS_POLL_INTERVAL_SECONDS", 0)
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
 
@@ -58,5 +55,5 @@ def test_launch_java_jenkins_mode_polls_and_marks_success(client, session, monke
 
     job = session.exec(select(Job)).first()
     session.refresh(job)
-    assert job.status == "success"
+    assert job.status == "triggered"
     assert job.jenkins_build_id == "https://jenkins/queue/item/9/"

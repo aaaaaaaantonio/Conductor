@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
-from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES, JENKINS_POLL_INTERVAL_SECONDS
+from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES
 from app.db import get_session
 from app.templating import templates
 from app.execution.runner import start_jenkins_job_with_own_session
@@ -59,7 +59,6 @@ async def java_launch(
         JENKINS_BASE_URL,
         JENKINS_JOB_NAMES["java"],
         jenkins_params,
-        poll_interval=JENKINS_POLL_INTERVAL_SECONDS,
     )
 
     from app.routers.jobs import job_list_fragment

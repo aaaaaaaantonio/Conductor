@@ -146,17 +146,14 @@ def test_python_launch_vm_mode_creates_job_and_returns_list_fragment(client, ses
     assert "job-" in resp.text
 
 
-def test_python_launch_jenkins_mode_polls_and_marks_success(client, session, monkeypatch):
+def test_python_launch_jenkins_mode_triggers_build(client, session, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/buildWithParameters"):
-            return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/5/"})
-        return httpx.Response(200, json={"building": False, "result": "SUCCESS"})
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/5/"})
 
     mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(
         "app.execution.runner.httpx.AsyncClient", lambda *a, **kw: mock_client
     )
-    monkeypatch.setattr("app.routers.launch_python.JENKINS_POLL_INTERVAL_SECONDS", 0)
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
     stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
@@ -175,7 +172,7 @@ def test_python_launch_jenkins_mode_polls_and_marks_success(client, session, mon
     job_id = int(resp.text.split('id="job-')[1].split('"')[0])
     job = session.get(Job, job_id)
     session.refresh(job)
-    assert job.status == "success"
+    assert job.status == "triggered"
     assert job.jenkins_build_id == "https://jenkins/queue/item/5/"
 
 

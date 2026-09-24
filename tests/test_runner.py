@@ -100,22 +100,17 @@ async def test_start_local_job_marks_failed_when_executable_missing(tmp_path: Pa
 
 
 @pytest.mark.asyncio
-async def test_start_jenkins_job_polls_until_success(session: Session):
+async def test_start_jenkins_job_marks_triggered_without_polling(session: Session):
     job = Job(source="java", status="queued", params_json="{}")
     session.add(job)
     session.commit()
     session.refresh(job)
 
-    responses = iter(
-        [
-            httpx.Response(201, headers={"Location": "https://jenkins/queue/item/1/"}),
-            httpx.Response(200, json={"building": True, "result": None}),
-            httpx.Response(200, json={"building": False, "result": "SUCCESS"}),
-        ]
-    )
+    requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return next(responses)
+        requests.append(request)
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/1/"})
 
     test_broadcaster = EventBroadcaster()
     events_queue = test_broadcaster.subscribe()
@@ -129,50 +124,19 @@ async def test_start_jenkins_job_polls_until_success(session: Session):
             session=session,
             client=client,
             broadcaster=test_broadcaster,
-            poll_interval=0,
         )
 
     session.refresh(job)
-    assert job.status == "success"
+    assert job.status == "triggered"
     assert job.jenkins_build_id == "https://jenkins/queue/item/1/"
+    # Only the trigger call — no follow-up status polling.
+    assert len(requests) == 1
 
     events = []
     while not events_queue.empty():
         events.append(events_queue.get_nowait())
     status_events = [e for e in events if e["type"] == "job-status"]
-    assert [e["status"] for e in status_events] == ["running", "success"]
-
-
-@pytest.mark.asyncio
-async def test_start_jenkins_job_marks_failed_on_build_failure(session: Session):
-    job = Job(source="java", status="queued", params_json="{}")
-    session.add(job)
-    session.commit()
-    session.refresh(job)
-
-    responses = iter(
-        [
-            httpx.Response(201, headers={"Location": "https://jenkins/queue/item/2/"}),
-            httpx.Response(200, json={"building": False, "result": "FAILURE"}),
-        ]
-    )
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        return next(responses)
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        await start_jenkins_job(
-            job_id=job.id,
-            base_url="https://jenkins",
-            job_name="java-tests",
-            params={"team_id": 1},
-            session=session,
-            client=client,
-            poll_interval=0,
-        )
-
-    session.refresh(job)
-    assert job.status == "failed"
+    assert [e["status"] for e in status_events] == ["triggered"]
 
 
 @pytest.mark.asyncio
@@ -200,7 +164,6 @@ async def test_start_jenkins_job_marks_failed_when_trigger_raises(session: Sessi
             session=session,
             client=client,
             broadcaster=test_broadcaster,
-            poll_interval=0,
         )
 
     session.refresh(job)
