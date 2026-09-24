@@ -4,20 +4,19 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.templating import templates
 from app.execution.command_builder import FieldSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
 from app.grouping import group_by
 from app.models.agent_testing import Agent, AgentTest
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem
+from app.models.reference import ReferenceItem, active_references
 
 router = APIRouter(tags=["agent-testing"])
-templates = Jinja2Templates(directory="app/templates")
 
 LOG_DIR = Path("job_logs")
 
@@ -156,13 +155,7 @@ async def launch_agent_test(
 
 @router.get("/agent-testing", response_class=HTMLResponse)
 def agent_testing_page(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
-    teams = list(
-        session.exec(
-            select(ReferenceItem).where(
-                ReferenceItem.category == "team", ReferenceItem.is_active == True  # noqa: E712
-            )
-        ).all()
-    )
+    teams = active_references(session, "team")
     agents = list(session.exec(select(Agent)).all())
     tests = list(session.exec(select(AgentTest)).all())
 

@@ -254,9 +254,15 @@
   });
 
   // --- new-stand modal ---
-  var standModal = document.getElementById("stand-modal");
+  // Looked up per call rather than captured once: the keydown/click handlers
+  // below outlive this render (they stay bound on document/body after a
+  // boosted nav away), so a captured node would be a detached stale copy.
+  function getStandModal() { return document.getElementById("stand-modal"); }
 
-  function closeStandModal() { standModal.classList.remove("open"); }
+  function closeStandModal() {
+    var modal = getStandModal();
+    if (modal) modal.classList.remove("open");
+  }
 
   function submitStandModal() {
     var valueInput = document.getElementById("new-stand-value");
@@ -312,11 +318,11 @@
     var modalTrigger = e.target.closest('.modal-trigger[data-modal="stand-modal"]');
     if (modalTrigger) {
       e.preventDefault();
-      standModal.classList.add("open");
+      getStandModal().classList.add("open");
       return;
     }
 
-    if (e.target === standModal || e.target.closest("#stand-modal .modal-close, #stand-modal .modal-cancel")) {
+    if (e.target === getStandModal() || e.target.closest("#stand-modal .modal-close, #stand-modal .modal-cancel")) {
       closeStandModal();
       return;
     }

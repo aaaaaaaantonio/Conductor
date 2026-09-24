@@ -3,18 +3,17 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES, JENKINS_POLL_INTERVAL_SECONDS, PYTHON_TEST_RUNNER_PATH
 from app.db import get_session
+from app.templating import templates
 from app.execution.command_builder import FieldSpec, build_command
 from app.execution.runner import start_jenkins_job_with_own_session, start_local_job_with_own_session
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem
+from app.models.reference import ReferenceItem, active_references
 
 router = APIRouter(tags=["launch-python"])
-templates = Jinja2Templates(directory="app/templates")
 LOG_DIR = Path("job_logs")
 
 PYTHON_FIELDS = [
@@ -28,13 +27,7 @@ PYTHON_FIELDS = [
 
 @router.get("/python", response_class=HTMLResponse)
 def python_tab(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
-    teams = list(
-        session.exec(
-            select(ReferenceItem).where(
-                ReferenceItem.category == "team", ReferenceItem.is_active == True  # noqa: E712
-            )
-        ).all()
-    )
+    teams = active_references(session, "team")
     return templates.TemplateResponse(request, "python_tab.html", {"teams": teams})
 
 

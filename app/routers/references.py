@@ -3,17 +3,16 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.templating import templates
 from app.grouping import group_by
-from app.models.reference import ReferenceItem, TeamStandLink
+from app.models.reference import ReferenceItem, TeamStandLink, active_references
 
 router = APIRouter(prefix="/api/references", tags=["references"])
 page_router = APIRouter(tags=["references-ui"])
-templates = Jinja2Templates(directory="app/templates")
 
 # Placeholders for children whose parent was soft-deleted while they're
 # still active, so they stay visible/editable instead of vanishing from the
@@ -33,13 +32,7 @@ def list_reference_items(
     parent_id: Optional[int] = None,
     session: Session = Depends(get_session),
 ) -> list[ReferenceItem]:
-    statement = select(ReferenceItem).where(
-        ReferenceItem.category == category, ReferenceItem.is_active == True  # noqa: E712
-    )
-    if parent_id is not None:
-        statement = statement.where(ReferenceItem.parent_id == parent_id)
-    statement = statement.order_by(ReferenceItem.sort_order, ReferenceItem.value)
-    return list(session.exec(statement).all())
+    return active_references(session, category, parent_id)
 
 
 @router.post("", response_model=ReferenceItem, status_code=201)
@@ -190,7 +183,6 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     datasets = [i for i in items if i.category == "dataset"]
 
     team_by_id: dict[Optional[int], ReferenceItem] = {t.id: t for t in teams}
-    test_name_by_id: dict[Optional[int], ReferenceItem] = {t.id: t for t in test_names}
 
     links = list(session.exec(select(TeamStandLink)).all())
     stand_teams: dict[int, list[ReferenceItem]] = defaultdict(list)
@@ -245,11 +237,8 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
             "teams": teams,
             "stands": stands,
             "test_names": test_names,
-            "datasets": datasets,
             "stand_teams": stand_teams,
             "tests_by_team": tests_by_team,
             "datasets_by_team": datasets_by_team,
-            "team_by_id": team_by_id,
-            "test_name_by_id": test_name_by_id,
         },
     )

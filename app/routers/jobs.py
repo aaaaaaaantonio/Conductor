@@ -5,15 +5,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from app.db import get_session
+from app.templating import templates
 from app.execution.broadcaster import broadcaster
 from app.models.jobs import Job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
-templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/fragments/list", response_class=HTMLResponse)
