@@ -7,6 +7,7 @@ from sqlmodel import Session
 
 from app.config import JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
 from app.db import get_session
+from app.execution.jenkins_launch import restart_python
 from app.templating import templates
 from app.execution.command_builder import FieldSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
@@ -87,3 +88,21 @@ async def python_launch(
     from app.routers.jobs import job_list_fragment
 
     return job_list_fragment(request, session)
+
+
+@router.post("/python/restart", response_class=HTMLResponse)
+async def python_restart(
+    request: Request,
+    build_number: int = Form(..., ge=1),
+    session: Session = Depends(get_session),
+) -> HTMLResponse:
+    params = {"restart_build": build_number}
+    # "triggering" keeps Jenkins jobs out of the active job list (queued/running).
+    job = Job(source="python", status="triggering", params_json=json.dumps(params))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    from app.routers.jobs import jenkins_restart_response
+
+    return await jenkins_restart_response(request, session, job, restart_python, build_number)

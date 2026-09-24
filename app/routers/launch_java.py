@@ -7,6 +7,7 @@ from sqlmodel import Session
 
 from app.config import JENKINS_JOB_NAMES
 from app.db import get_session
+from app.execution.jenkins_launch import restart_java
 from app.templating import templates
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
@@ -58,3 +59,21 @@ async def java_launch(
     return await jenkins_launch_response(
         request, session, job, JENKINS_JOB_NAMES["java"], jenkins_params
     )
+
+
+@router.post("/java/restart", response_class=HTMLResponse)
+async def java_restart(
+    request: Request,
+    build_number: int = Form(..., ge=1),
+    session: Session = Depends(get_session),
+) -> HTMLResponse:
+    params = {"restart_build": build_number}
+    # "triggering" keeps Jenkins jobs out of the active job list (queued/running).
+    job = Job(source="java", status="triggering", params_json=json.dumps(params))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    from app.routers.jobs import jenkins_restart_response
+
+    return await jenkins_restart_response(request, session, job, restart_java, build_number)

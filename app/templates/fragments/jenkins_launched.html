@@ -2,7 +2,7 @@
    replies stay below it. `message`/`url` come from launch_in_jenkins
    (app/execution/jenkins_launch.py). #}
 <div class="launch-msg{% if failed %} failed{% endif %}">
-  <div class="launch-msg-meta">{{ time }} · job #{{ job.id }} · {{ job.source }}</div>
+  <div class="launch-msg-meta">{{ time }} · job #{{ job.id }} · {{ job.source }}{% if restart_build %} · <span class="launch-msg-tag">перезапуск #{{ restart_build }}</span>{% endif %}</div>
   <div class="launch-msg-title">{{ message }}</div>
   {% if url %}<a class="launch-msg-link" href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a>{% endif %}
 </div>

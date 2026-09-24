@@ -3,6 +3,7 @@
 {% block subtitle %}Сборка в Jenkins{% endblock %}
 {% block content %}
 <div class="layout python no-jobs">
+  <div class="side-stack">
   <div class="panel">
     <h2>Параметры запуска</h2>
     <form hx-post="/java/launch" hx-target="#job-log-body" hx-swap="afterbegin" hx-disabled-elt="#j-submit">
@@ -52,6 +53,20 @@
       </div>
       <button class="btn-primary" id="j-submit" type="submit"><span aria-hidden="true">▶</span> Запустить</button>
     </form>
+  </div>
+
+  <div class="panel">
+    <h2>Перезапуск прогона</h2>
+    {# Always goes to Jenkins (restart_java in app/execution/jenkins_launch.py);
+       the reply joins the launch feed in the log panel. #}
+    <form hx-post="/java/restart" hx-target="#job-log-body" hx-swap="afterbegin" hx-disabled-elt="#j-restart-submit">
+      <div class="field">
+        <label for="j-restart-build">Номер сборки Jenkins</label>
+        <input id="j-restart-build" name="build_number" type="number" min="1" step="1" inputmode="numeric" placeholder="например, 1234" required>
+      </div>
+      <button class="btn-secondary btn-block" id="j-restart-submit" type="submit"><span aria-hidden="true">↻</span> Перезапустить</button>
+    </form>
+  </div>
   </div>
 
   <div class="panel log-panel">

@@ -3,6 +3,7 @@ import html
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Awaitable, Callable, Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -27,13 +28,49 @@ def job_list_fragment(request: Request, session: Session = Depends(get_session))
 async def jenkins_launch_response(
     request: Request, session: Session, job: Job, job_name: str, params: dict
 ) -> HTMLResponse:
+    return await jenkins_reply_response(
+        request,
+        session,
+        job,
+        launch_in_jenkins(job.source, job_name, params),
+        error_prefix="Не удалось отправить запуск в Jenkins",
+    )
+
+
+async def jenkins_restart_response(
+    request: Request,
+    session: Session,
+    job: Job,
+    restart: Callable[[int], Awaitable[LaunchResult]],
+    build_number: int,
+) -> HTMLResponse:
+    return await jenkins_reply_response(
+        request,
+        session,
+        job,
+        restart(build_number),
+        error_prefix=f"Не удалось перезапустить сборку #{build_number}",
+        restart_build=build_number,
+    )
+
+
+async def jenkins_reply_response(
+    request: Request,
+    session: Session,
+    job: Job,
+    send: Awaitable[LaunchResult],
+    error_prefix: str,
+    restart_build: Optional[int] = None,
+) -> HTMLResponse:
+    """Await a Jenkins launch/restart hook, record the outcome on `job` and
+    render its reply card for the log-panel feed."""
     try:
-        result = await launch_in_jenkins(job.source, job_name, params)
+        result = await send
         job.status = "triggered"
         job.jenkins_build_id = result.url
     except Exception as exc:
         job.status = "failed"
-        result = LaunchResult(message=f"Не удалось отправить запуск в Jenkins: {exc}")
+        result = LaunchResult(message=f"{error_prefix}: {exc}")
     session.add(job)
     session.commit()
 
@@ -49,6 +86,7 @@ async def jenkins_launch_response(
             "message": result.message,
             "url": result.url,
             "failed": job.status == "failed",
+            "restart_build": restart_build,
         },
         headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
     )
