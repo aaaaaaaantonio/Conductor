@@ -7,7 +7,7 @@ from app.models.jobs import Job
 def test_java_tab_renders_without_dataset_field(client):
     resp = client.get("/java")
     assert resp.status_code == 200
-    assert "Java-таб" in resp.text
+    assert "Java-запуск" in resp.text
     assert "Часть" in resp.text
     assert "dataset" not in resp.text.lower()
     # Java runs only go through Jenkins, which isn't tracked — no job list.

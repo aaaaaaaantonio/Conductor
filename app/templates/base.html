@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Test Runner Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · Conductor</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
   <script src="/static/sse.js"></script>
@@ -23,17 +24,33 @@
   </script>
 </head>
 <body>
-  <div class="wrap">
-    <div class="appbar">
-      <h1>Test Runner Bot</h1>
-      <nav class="tabs" hx-boost="true">
-        <a href="/java" class="{{ 'active' if request.url.path == '/java' else '' }}">Java-таб</a>
-        <a href="/python" class="{{ 'active' if request.url.path == '/python' else '' }}">Python-таб</a>
-        <a href="/agent-testing" class="{{ 'active' if request.url.path == '/agent-testing' else '' }}">Тестирование агентов</a>
-        <a href="/references" class="{{ 'active' if request.url.path == '/references' else '' }}">Справочники</a>
+  {% macro nav_item(path, label, icon) -%}
+    <a href="{{ path }}" class="sb-item{{ ' active' if request.url.path == path }}" title="{{ label }}"{{ ' aria-current="page"' | safe if request.url.path == path }}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">{{ icon | safe }}</svg><span class="sb-label">{{ label }}</span>
+    </a>
+  {%- endmacro %}
+  <div class="shell">
+    <aside class="sb" hx-boost="true">
+      <a href="/python" class="sb-brand"><span class="sb-logo" aria-hidden="true">▶</span><span class="sb-label">Conductor</span></a>
+      <nav class="sb-nav">
+        <div class="sb-group">Запуск</div>
+        {{ nav_item("/java", "Java", '<path d="M8 3h8M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/>') }}
+        {{ nav_item("/python", "Python", '<path d="M4 17l6-6-6-6M12 19h8"/>') }}
+        {{ nav_item("/agent-testing", "Тестирование агентов", '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/>') }}
+        <div class="sb-group">Настройки</div>
+        {{ nav_item("/references", "Справочники", '<path d="M4 5h16M4 12h16M4 19h10"/>') }}
       </nav>
-    </div>
-    {% block content %}{% endblock %}
+      {# Shown only on pages with a live SSE connection; app.js flips it on
+         htmx:sseOpen / htmx:sseError. #}
+      <div class="sb-sse" id="sse-status" hidden><span class="sb-sse-dot"></span><span class="sb-label sb-sse-text"></span></div>
+    </aside>
+    <main class="main">
+      <header class="page-head">
+        <h1>{{ self.title() }}</h1>
+        <span class="page-sub">{% block subtitle %}{% endblock %}</span>
+      </header>
+      {% block content %}{% endblock %}
+    </main>
   </div>
   <script src="/static/app.js"></script>
 </body>

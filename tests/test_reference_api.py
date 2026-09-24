@@ -83,3 +83,14 @@ def test_cascading_stand_and_test_name_fragments(client):
         "/api/references/fragments/datasets", params={"test_name_id": test_name["id"]}
     )
     assert "dataset_default" in resp.text
+
+
+def test_pages_define_bind_persistent_in_head(client):
+    # Page scripts (e.g. references.html) call window.bindPersistent inline;
+    # it must be defined in <head>, before the content block, or a full page
+    # load throws and no handlers get bound.
+    for path in ["/references", "/python", "/java", "/agent-testing"]:
+        html = client.get(path).text
+        head = html.split("</head>")[0]
+        assert "window.bindPersistent = function" in head, path
+        assert '<aside class="sb"' in html.split("</head>")[1], path

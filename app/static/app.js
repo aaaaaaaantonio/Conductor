@@ -30,6 +30,18 @@
     if (activeLog) setActiveJobRow(e.target, Number(activeLog.dataset.job));
   });
 
+  // Sidebar connection indicator: hidden by default (pages without
+  // sse-connect never open a stream), shown once the page's stream opens.
+  function setSseStatus(ok) {
+    var el = document.getElementById("sse-status");
+    if (!el) return;
+    el.hidden = false;
+    el.classList.toggle("down", !ok);
+    el.querySelector(".sb-sse-text").textContent = ok ? "Live-обновления" : "Нет связи с сервером";
+  }
+  document.body.addEventListener("htmx:sseOpen", function () { setSseStatus(true); });
+  document.body.addEventListener("htmx:sseError", function () { setSseStatus(false); });
+
   // Same status -> class mapping as fragments/job_log.html.
   var STATUS_CLASSES = { running: "run", success: "ok", failed: "fail" };
 

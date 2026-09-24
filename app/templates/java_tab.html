@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block title %}Java-запуск{% endblock %}
+{% block subtitle %}Сборка в Jenkins{% endblock %}
 {% block content %}
 <div class="layout python no-jobs">
   <div class="panel">
@@ -48,7 +50,7 @@
           hx-target="this"
         ></select>
       </div>
-      <button class="btn-primary" id="j-submit" type="submit">Запустить</button>
+      <button class="btn-primary" id="j-submit" type="submit"><span aria-hidden="true">▶</span> Запустить</button>
     </form>
   </div>
 

@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block title %}Тестирование агентов{% endblock %}
+{% block subtitle %}Команды, агенты и их тесты{% endblock %}
 {% block content %}
 <div class="layout agents" hx-ext="sse" sse-connect="/jobs/stream">
   <div class="panel">
@@ -25,7 +27,7 @@
   <div class="panel log-panel">
     <h2>Лог</h2>
     <div id="job-log-body">
-      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу справа, чтобы увидеть лог</div>
+      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу в списке активных, чтобы увидеть лог</div>
     </div>
   </div>
 

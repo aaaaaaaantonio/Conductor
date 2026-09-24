@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block title %}Python-запуск{% endblock %}
+{% block subtitle %}VM-агент или Jenkins{% endblock %}
 {% block content %}
 <div class="layout python" hx-ext="sse" sse-connect="/jobs/stream">
   <div class="panel">
@@ -29,13 +31,13 @@
           <option value="nfr">НФ</option>
         </select>
       </div>
-      <div class="field">
-        <label for="mode-select">Режим</label>
-        <select id="mode-select" name="execution_mode">
-          <option value="jenkins">Jenkins</option>
-          <option value="vm">VM-агент</option>
-        </select>
-      </div>
+      <fieldset class="field seg-field">
+        <legend>Режим</legend>
+        <div class="seg">
+          <label><input type="radio" name="execution_mode" value="jenkins" checked><span>Jenkins</span></label>
+          <label><input type="radio" name="execution_mode" value="vm"><span>VM-агент</span></label>
+        </div>
+      </fieldset>
       <div class="field">
         <label for="test-name-select">Имя теста</label>
         <select
@@ -60,14 +62,14 @@
           hx-target="this"
         ></select>
       </div>
-      <button class="btn-primary" id="p-submit" type="submit">Запустить</button>
+      <button class="btn-primary" id="p-submit" type="submit"><span aria-hidden="true">▶</span> Запустить</button>
     </form>
   </div>
 
   <div class="panel log-panel">
     <h2>Лог</h2>
     <div id="job-log-body">
-      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу справа, чтобы увидеть лог</div>
+      <div class="empty-log"><span class="glyph">▤</span>Выберите джобу в списке активных, чтобы увидеть лог</div>
     </div>
   </div>
 
