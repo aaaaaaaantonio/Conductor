@@ -299,7 +299,7 @@
   // Delegated listeners below go on `document`/`document.body`, which — unlike
   // the page content above — persist across hx-boost navigations (a boosted
   // nav swaps <body>'s innerHTML and re-runs this script, but never
-  // recreates body/document themselves). bindPersistent (app.js) swaps the
+  // recreates body/document themselves). bindPersistent (base.html) swaps the
   // listener out rather than stacking a duplicate each render.
   window.bindPersistent(document, "keydown", "__refsKeydownHandler", function (e) {
     if (e.key === "Escape") closeStandModal();

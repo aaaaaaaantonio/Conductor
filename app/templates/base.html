@@ -6,6 +6,21 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
   <script src="/static/sse.js"></script>
+  <script>
+    // Shared helper: keep exactly one delegated listener alive on a
+    // persistent target (document/document.body) across hx-boost re-renders.
+    // A boosted nav swaps <body>'s innerHTML and re-runs page scripts, but
+    // document/document.body themselves survive, so a page's own delegated
+    // handler — which closes over now-stale content — must be swapped out
+    // (not stacked) on every re-run rather than registered fresh each time.
+    // Defined here in <head>, not in app.js (loaded at the end of <body>),
+    // so page scripts inside the content block can use it on a full load.
+    window.bindPersistent = function (target, type, key, handler) {
+      if (window[key]) target.removeEventListener(type, window[key]);
+      window[key] = handler;
+      target.addEventListener(type, handler);
+    };
+  </script>
 </head>
 <body>
   <div class="wrap">

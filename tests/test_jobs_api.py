@@ -90,9 +90,9 @@ def test_python_launch_response_has_no_oob_wrapper(client, session):
     assert "Сборка отправлена в Jenkins" not in resp.text
 
 
-async def test_stream_renders_escaped_labeled_log_line_and_json_status():
+async def test_stream_renders_escaped_job_tagged_log_line_and_json_status():
     # Regression for finding 2: log-line events must render as an
-    # HTML-escaped, per-job-labeled line (not raw event JSON dumped as
+    # HTML-escaped line tagged with its job (not raw event JSON dumped as
     # text), while job-status events keep their JSON payload for the
     # job-list refresh trigger.
     response = await stream_events()
@@ -103,7 +103,7 @@ async def test_stream_renders_escaped_labeled_log_line_and_json_status():
         )
         chunk = await asyncio.wait_for(gen.__anext__(), timeout=1)
         assert "event: log-line" in chunk
-        assert "[job 7]" in chunk
+        assert 'data-job="7"' in chunk
         assert "&lt;b&gt;hi&lt;/b&gt; &amp; bye" in chunk
         assert "<b>hi</b>" not in chunk
         assert '"type"' not in chunk

@@ -22,8 +22,9 @@ body{
 /* app chrome */
 .appbar{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap}
 .appbar h1{font-size:1.05rem; margin:0; font-weight:600}
-.tabs{display:flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:3px}
+.tabs{display:flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:3px; max-width:100%; overflow-x:auto}
 .tabs a{
+  white-space:nowrap; flex-shrink:0;
   border:none; background:transparent; color:var(--ink-soft); font:inherit; font-size:.85rem; font-weight:500;
   padding:7px 14px; border-radius:6px; text-decoration:none; display:inline-block;
 }
@@ -83,10 +84,10 @@ body{
 }
 .job-row:hover{border-color:var(--line)}
 .job-row.selected{background:var(--accent-soft); border-color:var(--accent)}
-.job-row .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0}
-.job-row .dot.run{background:var(--status-run); box-shadow:0 0 0 3px var(--status-run-bg)}
-.job-row .dot.ok{background:var(--status-ok); box-shadow:0 0 0 3px var(--status-ok-bg)}
-.job-row .dot.fail{background:var(--status-fail); box-shadow:0 0 0 3px var(--status-fail-bg)}
+.job-row .dot, .log-head .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0}
+.job-row .dot.run, .log-head .dot.run{background:var(--status-run); box-shadow:0 0 0 3px var(--status-run-bg)}
+.job-row .dot.ok, .log-head .dot.ok{background:var(--status-ok); box-shadow:0 0 0 3px var(--status-ok-bg)}
+.job-row .dot.fail, .log-head .dot.fail{background:var(--status-fail); box-shadow:0 0 0 3px var(--status-fail-bg)}
 .job-row .job-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .job-row .job-status{font-size:.66rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; padding:2px 7px; border-radius:999px; flex-shrink:0}
 .job-row.run .job-status{color:var(--status-run); background:var(--status-run-bg)}

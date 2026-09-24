@@ -68,14 +68,14 @@ async def stream_events() -> StreamingResponse:
             while True:
                 event = await queue.get()
                 if event["type"] == "log-line":
-                    # sse-swap="log-line" appends this data verbatim as HTML
-                    # (hx-swap="beforeend") — render a single escaped,
-                    # job-labeled line instead of raw event JSON. SSE `data:`
-                    # fields can't contain literal newlines, so collapse any
+                    # app.js appends this to the open log panel if data-job
+                    # matches the job shown there — render a single escaped
+                    # line instead of raw event JSON. SSE `data:` fields
+                    # can't contain literal newlines, so collapse any
                     # embedded ones first.
                     job_id = event["job_id"]
                     line = event["line"].replace("\r", "").replace("\n", " ")
-                    data = f'<div data-job="{job_id}">[job {job_id}] {html.escape(line)}</div>'
+                    data = f'<div data-job="{job_id}">{html.escape(line)}</div>'
                 else:
                     data = json.dumps(event)
                 yield f"event: {event['type']}\ndata: {data}\n\n"

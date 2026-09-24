@@ -74,6 +74,10 @@
   <div class="panel">
     <h2>Активные джобы</h2>
     <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
+    {# sse.js only fires htmx:sseMessage for events some element listens to via
+       sse-swap; this no-op listener lets app.js append log-line events to the
+       open log panel and keep its status header current. #}
+    <div sse-swap="log-line,job-status" hx-swap="none" hidden></div>
   </div>
 </div>
 {% endblock %}

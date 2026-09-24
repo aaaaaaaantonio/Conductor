@@ -1,15 +1,3 @@
-// Shared helper: keep exactly one delegated listener alive on a
-// persistent target (document/document.body) across hx-boost re-renders.
-// A boosted nav swaps <body>'s innerHTML and re-runs page scripts, but
-// document/document.body themselves survive, so a page's own delegated
-// handler — which closes over now-stale content — must be swapped out
-// (not stacked) on every re-run rather than registered fresh each time.
-window.bindPersistent = window.bindPersistent || function (target, type, key, handler) {
-  if (window[key]) target.removeEventListener(type, window[key]);
-  window[key] = handler;
-  target.addEventListener(type, handler);
-};
-
 (function () {
   // hx-boost re-fetches and re-executes this script on every tab navigation
   // (it swaps <body>'s innerHTML but document.body itself persists), so
@@ -42,17 +30,42 @@ window.bindPersistent = window.bindPersistent || function (target, type, key, ha
     if (activeLog) setActiveJobRow(e.target, Number(activeLog.dataset.job));
   });
 
+  // Same status -> class mapping as fragments/job_log.html.
+  var STATUS_CLASSES = { running: "run", success: "ok", failed: "fail" };
+
+  function updateLogHeadStatus(log, event) {
+    if (String(event.job_id) !== log.dataset.job) return;
+    var head = log.parentNode.querySelector(".log-head");
+    if (!head) return;
+    var dot = head.querySelector(".dot");
+    dot.classList.remove("run", "ok", "fail");
+    if (STATUS_CLASSES[event.status]) dot.classList.add(STATUS_CLASSES[event.status]);
+    head.querySelector(".job-id").textContent = event.status;
+  }
+
   document.body.addEventListener("htmx:sseMessage", function (e) {
     // Only append a live log-line event to the log panel if it belongs to
     // the job currently open there — the SSE connection carries every
     // running job's output, not just the selected one.
-    if (e.detail.type !== "log-line") return;
     var target = document.querySelector("#job-log-body .log[data-job]");
     if (!target) return;
+    if (e.detail.type === "job-status") {
+      updateLogHeadStatus(target, JSON.parse(e.detail.data));
+      return;
+    }
+    if (e.detail.type !== "log-line") return;
     var tmp = document.createElement("div");
     tmp.innerHTML = e.detail.data;
     var lineEl = tmp.firstElementChild;
     if (!lineEl || lineEl.dataset.job !== target.dataset.job) return;
+    // Match the server-rendered lines (fragments/job_log.html): numbered,
+    // and replacing the "log is empty" hint once output starts.
+    var hint = target.querySelector(".log-empty-hint");
+    if (hint) hint.remove();
+    var ln = document.createElement("span");
+    ln.className = "ln";
+    ln.textContent = target.querySelectorAll(".ln").length + 1;
+    lineEl.insertBefore(ln, lineEl.firstChild);
     target.appendChild(lineEl);
     target.scrollTop = target.scrollHeight;
   });
