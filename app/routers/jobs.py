@@ -1,4 +1,3 @@
-import asyncio
 import html
 import json
 from datetime import datetime

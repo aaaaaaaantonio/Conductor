@@ -53,7 +53,7 @@ def test_duplicate_test_name_allowed_across_different_parent_teams(client):
 def test_cascading_stand_and_test_name_fragments(client):
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
     stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
-    other_stand = client.post("/api/references", json={"category": "stand", "value": "stage-2"}).json()
+    client.post("/api/references", json={"category": "stand", "value": "stage-2"})
 
     link = client.post(
         "/api/references/team-stand-links",
@@ -74,10 +74,10 @@ def test_cascading_stand_and_test_name_fragments(client):
     resp = client.get("/api/references/fragments/test-names", params={"team_id": team["id"]})
     assert "test_login_flow" in resp.text
 
-    dataset = client.post(
+    client.post(
         "/api/references",
         json={"category": "dataset", "value": "dataset_default", "parent_id": test_name["id"]},
-    ).json()
+    )
 
     resp = client.get(
         "/api/references/fragments/datasets", params={"test_name_id": test_name["id"]}
