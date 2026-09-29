@@ -10,6 +10,10 @@
   <div id="new-test-fields"></div>
   <button type="button" class="btn-secondary" id="new-test-add-row" style="width:auto; margin-bottom:14px">+ Добавить параметр</button>
 
+  <div class="section-label">Фиксированные флаги</div>
+  <div id="new-test-flags"></div>
+  <button type="button" class="btn-secondary" id="new-test-add-flag" style="width:auto; margin-bottom:14px">+ Добавить флаг</button>
+
   <div class="modal-foot">
     <button type="button" class="btn-secondary modal-cancel">Отмена</button>
     <button type="submit" class="btn-primary" id="new-test-submit" style="width:auto">Создать</button>
@@ -44,6 +48,37 @@
   });
   addRow();
 
+  // Fixed flags are always added to the command. A value flag named like a
+  // parameter above only fills that parameter when it's left empty.
+  var flagsContainer = document.getElementById("new-test-flags");
+
+  function addFlagRow() {
+    var row = document.createElement("div");
+    row.className = "flag-row";
+    row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:8px";
+    row.innerHTML =
+      '<input type="text" placeholder="--flag" class="fl-name" style="flex:2">' +
+      '<select class="fl-kind" style="flex:1">' +
+        '<option value="bool">без значения</option>' +
+        '<option value="value">со значением</option>' +
+      '</select>' +
+      '<input type="text" placeholder="значение" class="fl-default" style="flex:2" disabled>' +
+      '<button type="button" class="btn-secondary remove-flag" style="width:auto">✕</button>';
+    flagsContainer.appendChild(row);
+  }
+
+  document.getElementById("new-test-add-flag").addEventListener("click", addFlagRow);
+  flagsContainer.addEventListener("click", function (e) {
+    var btn = e.target.closest(".remove-flag");
+    if (btn) btn.closest(".flag-row").remove();
+  });
+  flagsContainer.addEventListener("change", function (e) {
+    if (!e.target.classList.contains("fl-kind")) return;
+    var input = e.target.closest(".flag-row").querySelector(".fl-default");
+    input.disabled = e.target.value === "bool";
+    if (input.disabled) input.value = "";
+  });
+
   var form = document.getElementById("new-test-form");
   var submitBtn = document.getElementById("new-test-submit");
   form.addEventListener("submit", function (event) {
@@ -59,11 +94,19 @@
         required: row.querySelector(".f-required").checked,
       });
     });
+    var flags = [];
+    flagsContainer.querySelectorAll(".flag-row").forEach(function (row) {
+      var name = row.querySelector(".fl-name").value.trim();
+      if (!name) return;
+      var kind = row.querySelector(".fl-kind").value;
+      var value = row.querySelector(".fl-default").value.trim();
+      flags.push({ name: name, kind: kind, default: kind === "value" && value ? value : null });
+    });
     submitBtn.disabled = true;
     fetch("/api/agents/{{ agent.id }}/tests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: form.elements["path"].value, flags: [], fields: fields }),
+      body: JSON.stringify({ path: form.elements["path"].value, flags: flags, fields: fields }),
     }).then(function (resp) {
       if (resp.ok) {
         location.reload();

@@ -209,3 +209,42 @@ def test_launch_passes_agent_test_flags_to_command(client, monkeypatch):
 
     assert resp.status_code == 202
     assert launched == [["run.sh", "--users=3", "--headless", "--env=stage"]]
+
+
+def test_new_test_form_has_fixed_flags_section(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+
+    html = client.get(f"/agent-testing/agents/{agent['id']}/fragments/new-test").text
+
+    assert 'id="new-test-flags"' in html
+    assert 'id="new-test-add-flag"' in html
+    # The submit handler must send the collected flags, not a hardcoded [].
+    assert "flags: []" not in html
+
+
+def test_card_shows_fixed_flags_and_flag_defaults(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    payload = {
+        "path": "run.sh",
+        "flags": [
+            {"name": "--headless", "kind": "bool", "default": None},
+            {"name": "--env", "kind": "value", "default": "stage"},
+            {"name": "--users", "kind": "value", "default": "10"},
+        ],
+        "fields": [
+            {"label": "Users", "flag_name": "--users", "type": "number", "required": True},
+        ],
+    }
+    test = client.post(f"/api/agents/{agent['id']}/tests", json=payload).json()
+
+    html = client.get(f"/agent-testing/tests/{test['id']}/fragments/card").text
+
+    assert "Фиксированные флаги" in html
+    assert "--headless" in html
+    assert "--env=stage" in html
+    # A flag backing a field is shown as that input's default, not as a
+    # separate fixed flag.
+    assert "--users=10" not in html
+    assert 'placeholder="по умолчанию: 10"' in html
