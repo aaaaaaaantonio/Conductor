@@ -1,4 +1,4 @@
-from app.execution.command_builder import FieldSpec, build_command
+from app.execution.command_builder import FieldSpec, FlagSpec, build_command
 
 
 def test_build_command_orders_flags_and_applies_type_rules():
@@ -31,3 +31,33 @@ def test_build_command_missing_required_field_raises():
         assert False, "expected ValueError"
     except ValueError as exc:
         assert "--users" in str(exc)
+
+
+def test_build_command_appends_flags_not_covered_by_fields():
+    fields = [FieldSpec(label="Users", flag_name="--users", type="number", required=True)]
+    flags = [
+        FlagSpec(name="--headless", kind="bool"),
+        FlagSpec(name="--env", kind="value", default="stage"),
+        FlagSpec(name="--no-default", kind="value"),
+    ]
+
+    command = build_command("path/to/test.py", fields, {"--users": 5}, flags)
+
+    assert command == ["path/to/test.py", "--users=5", "--headless", "--env=stage"]
+
+
+def test_build_command_flag_default_fills_empty_field():
+    fields = [FieldSpec(label="Env", flag_name="--env", type="text", required=True)]
+    flags = [FlagSpec(name="--env", kind="value", default="stage")]
+
+    assert build_command("t.py", fields, {"--env": ""}, flags) == ["t.py", "--env=stage"]
+    assert build_command("t.py", fields, {}, flags) == ["t.py", "--env=stage"]
+    assert build_command("t.py", fields, {"--env": "prod"}, flags) == ["t.py", "--env=prod"]
+
+
+def test_build_command_checkbox_field_overrides_bool_flag():
+    fields = [FieldSpec(label="Verbose", flag_name="--verbose", type="checkbox", required=False)]
+    flags = [FlagSpec(name="--verbose", kind="bool")]
+
+    assert build_command("t.py", fields, {"--verbose": False}, flags) == ["t.py"]
+    assert build_command("t.py", fields, {"--verbose": True}, flags) == ["t.py", "--verbose"]

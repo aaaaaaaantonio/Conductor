@@ -179,3 +179,33 @@ def test_launch_via_card_form_json_shape_succeeds_with_unchecked_checkbox(client
     )
     assert resp.status_code == 202
     assert "job_id" in resp.json()
+
+
+def test_launch_passes_agent_test_flags_to_command(client, monkeypatch):
+    import app.routers.agent_testing as agent_testing
+
+    launched = []
+
+    async def fake_start(job_id, command, log_dir):
+        launched.append(command)
+
+    monkeypatch.setattr(agent_testing, "start_local_job_with_own_session", fake_start)
+
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    payload = {
+        "path": "run.sh",
+        "flags": [
+            {"name": "--headless", "kind": "bool", "default": None},
+            {"name": "--env", "kind": "value", "default": "stage"},
+        ],
+        "fields": [
+            {"label": "Users", "flag_name": "--users", "type": "number", "required": True},
+        ],
+    }
+    test = client.post(f"/api/agents/{agent['id']}/tests", json=payload).json()
+
+    resp = client.post(f"/api/agent-tests/{test['id']}/launch", json={"values": {"--users": 3}})
+
+    assert resp.status_code == 202
+    assert launched == [["run.sh", "--users=3", "--headless", "--env=stage"]]

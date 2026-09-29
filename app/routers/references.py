@@ -69,6 +69,17 @@ def update_reference_item(
     item = session.get(ReferenceItem, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Not found")
+    duplicate = session.exec(
+        select(ReferenceItem).where(
+            ReferenceItem.category == item.category,
+            ReferenceItem.value == payload.value,
+            ReferenceItem.parent_id == payload.parent_id,
+            ReferenceItem.is_active == True,  # noqa: E712
+            ReferenceItem.id != item_id,
+        )
+    ).first()
+    if duplicate is not None:
+        raise HTTPException(status_code=409, detail="Duplicate value in category")
     item.value = payload.value
     item.parent_id = payload.parent_id
     item.command = payload.command
@@ -95,8 +106,10 @@ def soft_delete_reference_item(
 def link_team_stand(
     payload: TeamStandLinkRequest, session: Session = Depends(get_session)
 ) -> Response:
-    session.add(TeamStandLink(team_id=payload.team_id, stand_id=payload.stand_id))
-    session.commit()
+    # Linking an already-linked pair is a no-op, not a primary-key clash.
+    if session.get(TeamStandLink, (payload.team_id, payload.stand_id)) is None:
+        session.add(TeamStandLink(team_id=payload.team_id, stand_id=payload.stand_id))
+        session.commit()
     return Response(status_code=204)
 
 

@@ -207,3 +207,37 @@ def test_startup_marks_stale_running_jobs_failed(session):
     assert stale.status == "failed"
     assert stale_trigger.status == "failed"
 
+
+
+def test_python_launch_rejects_unknown_execution_mode(client, session):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
+
+    resp = client.post(
+        "/python/launch",
+        data={
+            "team_id": team["id"],
+            "stand_id": stand["id"],
+            "regression_type": "regression",
+            "execution_mode": "bogus",
+        },
+    )
+
+    assert resp.status_code == 422
+    # No job may be left behind stuck in "queued" (the active job list).
+    assert session.exec(select(Job)).all() == []
+
+
+def test_job_updated_at_changes_on_update(session):
+    job = Job(source="python", status="queued", params_json="{}")
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    created_updated_at = job.updated_at
+
+    job.status = "running"
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    assert job.updated_at > created_updated_at

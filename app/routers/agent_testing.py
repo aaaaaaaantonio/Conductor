@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.templating import templates
-from app.execution.command_builder import FieldSpec, build_command
+from app.execution.command_builder import FieldSpec, FlagSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
 from app.grouping import group_by
 from app.models.agent_testing import Agent, AgentTest
@@ -139,8 +139,9 @@ async def launch_agent_test(
         raise HTTPException(status_code=404, detail="Not found")
 
     fields = [FieldSpec(**f) for f in json.loads(agent_test.fields_json)]
+    flags = [FlagSpec(**f) for f in json.loads(agent_test.flags_json)]
     try:
-        command = build_command(agent_test.path, fields, payload.values)
+        command = build_command(agent_test.path, fields, payload.values, flags)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

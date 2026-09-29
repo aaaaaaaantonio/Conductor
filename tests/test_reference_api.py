@@ -94,3 +94,27 @@ def test_pages_define_bind_persistent_in_head(client):
         head = html.split("</head>")[0]
         assert "window.bindPersistent = function" in head, path
         assert '<aside class="sb"' in html.split("</head>")[1], path
+
+
+def test_linking_same_team_and_stand_twice_is_idempotent(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
+    link = {"team_id": team["id"], "stand_id": stand["id"]}
+
+    assert client.post("/api/references/team-stand-links", json=link).status_code == 204
+    assert client.post("/api/references/team-stand-links", json=link).status_code == 204
+
+    resp = client.get("/api/references/fragments/stands", params={"team_id": team["id"]})
+    assert resp.text.count("stage-1") == 1
+
+
+def test_renaming_reference_to_existing_value_returns_409(client):
+    client.post("/api/references", json={"category": "team", "value": "QA-Backend"})
+    other = client.post("/api/references", json={"category": "team", "value": "QA-Frontend"}).json()
+
+    resp = client.put(f"/api/references/{other['id']}", json={"value": "QA-Backend"})
+    assert resp.status_code == 409
+
+    # Saving an item under its own current value is not a duplicate.
+    resp = client.put(f"/api/references/{other['id']}", json={"value": "QA-Frontend"})
+    assert resp.status_code == 200

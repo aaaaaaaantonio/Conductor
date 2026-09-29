@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
@@ -39,7 +40,7 @@ async def python_launch(
     team_id: int = Form(...),
     stand_id: int = Form(...),
     regression_type: str = Form(...),
-    execution_mode: str = Form(...),
+    execution_mode: Literal["jenkins", "vm"] = Form(...),
     test_name_id: int | None = Form(None),
     dataset_id: int | None = Form(None),
     session: Session = Depends(get_session),
