@@ -144,3 +144,33 @@ def test_launch_java_renders_custom_launch_result(client, session, monkeypatch):
     ]
     assert "Запуск принят" in resp.text
     assert 'href="https://ci/job/42"' in resp.text
+
+
+def test_launch_forms_opt_into_remembering_values(client):
+    assert 'data-remember="java-launch"' in client.get("/java").text
+    assert 'data-remember="python-launch"' in client.get("/python").text
+    # The restart forms keep nothing: a build number is one-off.
+    assert client.get("/java").text.count("data-remember") == 1
+
+
+def test_python_datasets_reload_when_test_name_changes(client):
+    html = client.get("/python").text
+    assert 'hx-trigger="htmx:afterSwap from:#test-name-select, change from:#test-name-select"' in html
+
+
+def test_app_js_restores_remembered_form_values(client):
+    js = client.get("/static/app.js").text
+    assert "form[data-remember]" in js
+    assert "localStorage" in js
+
+
+def test_dependent_selects_replace_their_options(client):
+    # The Java launch form sets hx-swap="afterbegin" for its reply feed; the
+    # dependent selects inherit hx-swap, so without their own they'd prepend
+    # new options and keep the previous team's stands and tests.
+    for tab in ("java", "python"):
+        html = client.get(f"/{tab}").text
+        selects = html.split('hx-target="this"')[1:]
+        assert selects, tab
+        for rest in selects:
+            assert rest.lstrip().startswith('hx-swap="innerHTML"'), tab

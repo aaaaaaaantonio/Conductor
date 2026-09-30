@@ -6,7 +6,7 @@
   <div class="side-stack">
   <div class="panel">
     <h2>Параметры запуска</h2>
-    <form hx-post="/python/launch" hx-target="#job-list" hx-swap="innerHTML" hx-disabled-elt="#p-submit">
+    <form data-remember="python-launch" hx-post="/python/launch" hx-target="#job-list" hx-swap="innerHTML" hx-disabled-elt="#p-submit">
       <div class="field">
         <label for="team-select">Команда</label>
         <select name="team_id" id="team-select">
@@ -23,6 +23,7 @@
           hx-trigger="load, change from:#team-select"
           hx-disabled-elt="unset"
           hx-target="this"
+          hx-swap="innerHTML"
         ></select>
       </div>
       <div class="field">
@@ -49,6 +50,7 @@
           hx-trigger="load, change from:#team-select"
           hx-disabled-elt="unset"
           hx-target="this"
+          hx-swap="innerHTML"
         ></select>
       </div>
       <div class="field">
@@ -58,9 +60,10 @@
           name="dataset_id"
           hx-get="/api/references/fragments/datasets"
           hx-include="#test-name-select"
-          hx-trigger="htmx:afterSwap from:#test-name-select"
+          hx-trigger="htmx:afterSwap from:#test-name-select, change from:#test-name-select"
           hx-disabled-elt="unset"
           hx-target="this"
+          hx-swap="innerHTML"
         ></select>
       </div>
       <button class="btn-primary" id="p-submit" type="submit"><span aria-hidden="true">▶</span> Запустить</button>

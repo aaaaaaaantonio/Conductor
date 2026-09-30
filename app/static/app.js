@@ -8,6 +8,94 @@
   if (window.__testRunnerAppInit) return;
   window.__testRunnerAppInit = true;
 
+  // Launch forms marked data-remember="<key>" keep their last values (team,
+  // stand, mode, …) in localStorage. Dependent selects load their options
+  // over htmx after the team is known, so a saved value is re-applied each
+  // time a select's options arrive; setting it fires "change" so the next
+  // select in the chain reloads for it.
+  var REMEMBER_PREFIX = "conductor:form:";
+  // Set while a restored value's "change" is dispatched: the form is then
+  // mid-cascade (dependent selects not reloaded yet) and must not overwrite
+  // the saved values with that half-updated state.
+  var restoring = false;
+
+  function readRemembered(form) {
+    try {
+      return JSON.parse(localStorage.getItem(REMEMBER_PREFIX + form.dataset.remember)) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveRemembered(form) {
+    var values = {};
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (!el.name) return;
+      if (el.type === "radio") {
+        if (el.checked) values[el.name] = el.value;
+      } else if (el.tagName === "SELECT" && el.value !== "") {
+        values[el.name] = el.value;
+      }
+    });
+    try {
+      localStorage.setItem(REMEMBER_PREFIX + form.dataset.remember, JSON.stringify(values));
+    } catch (e) {}
+  }
+
+  // Apply the saved value to one select or radio group; true if it changed.
+  function applyRemembered(el, saved) {
+    var value = saved[el.name];
+    if (value === undefined) return false;
+    if (el.type === "radio") {
+      if (el.value !== value || el.checked) return false;
+      el.checked = true;
+      return true;
+    }
+    if (el.value === value) return false;
+    var hasOption = Array.prototype.some.call(el.options, function (o) { return o.value === value; });
+    if (!hasOption) return false;
+    el.value = value;
+    return true;
+  }
+
+  function fireRestoredChange(el) {
+    restoring = true;
+    try {
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    } finally {
+      restoring = false;
+    }
+  }
+
+  function restoreRemembered(form) {
+    var saved = readRemembered(form);
+    Array.prototype.forEach.call(form.elements, function (el) {
+      if (el.name && applyRemembered(el, saved)) fireRestoredChange(el);
+    });
+  }
+
+  htmx.onLoad(function (elt) {
+    var forms = elt.matches && elt.matches("form[data-remember]") ? [elt] : [];
+    if (elt.querySelectorAll) {
+      forms = forms.concat(Array.prototype.slice.call(elt.querySelectorAll("form[data-remember]")));
+    }
+    forms.forEach(function (form) {
+      if (form.dataset.rememberBound) return;
+      form.dataset.rememberBound = "1";
+      form.addEventListener("change", function () { if (!restoring) saveRemembered(form); });
+      form.addEventListener("submit", function () { saveRemembered(form); });
+      restoreRemembered(form);
+    });
+  });
+
+  document.body.addEventListener("htmx:afterSwap", function (e) {
+    var select = e.target;
+    if (select.tagName !== "SELECT") return;
+    var form = select.closest("form[data-remember]");
+    if (!form) return;
+    if (applyRemembered(select, readRemembered(form))) fireRestoredChange(select);
+  });
+
   function setActiveJobRow(list, jobId) {
     list.querySelectorAll(".job-row").forEach(function (row) {
       row.classList.toggle("selected", Number(row.dataset.job) === jobId);

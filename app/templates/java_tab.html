@@ -6,7 +6,7 @@
   <div class="side-stack">
   <div class="panel">
     <h2>Параметры запуска</h2>
-    <form hx-post="/java/launch" hx-target="#job-log-body" hx-swap="afterbegin" hx-disabled-elt="#j-submit">
+    <form data-remember="java-launch" hx-post="/java/launch" hx-target="#job-log-body" hx-swap="afterbegin" hx-disabled-elt="#j-submit">
       <div class="field">
         <label for="j-team-select">Команда</label>
         <select name="team_id" id="j-team-select">
@@ -23,6 +23,7 @@
           hx-trigger="load, change from:#j-team-select"
           hx-disabled-elt="unset"
           hx-target="this"
+          hx-swap="innerHTML"
         ></select>
       </div>
       <div class="field">
@@ -49,6 +50,7 @@
           hx-trigger="load, change from:#j-team-select"
           hx-disabled-elt="unset"
           hx-target="this"
+          hx-swap="innerHTML"
         ></select>
       </div>
       <button class="btn-primary" id="j-submit" type="submit"><span aria-hidden="true">▶</span> Запустить</button>

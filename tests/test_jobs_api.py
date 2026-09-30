@@ -62,7 +62,7 @@ def test_python_tab_cascading_selects_carry_corrected_triggers(client):
     assert 'hx-trigger="load, change from:#team-select"' in resp.text
     assert 'id="test-name-select"' in resp.text
     assert 'id="dataset-select"' in resp.text
-    assert 'hx-trigger="htmx:afterSwap from:#test-name-select"' in resp.text
+    assert 'hx-trigger="htmx:afterSwap from:#test-name-select, change from:#test-name-select"' in resp.text
     assert 'hx-trigger="change from:#team-select"' not in resp.text
     assert 'hx-trigger="change from:#test-name-select"' not in resp.text
 
