@@ -84,7 +84,7 @@ def create_agent_test(
 ) -> dict:
     agent = session.get(Agent, agent_id)
     if agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Агент не найден")
 
     flags_json, fields_json = _encode_payload(payload)
     agent_test = AgentTest(
@@ -103,7 +103,7 @@ def create_agent_test(
 def get_agent_test(test_id: int, session: Session = Depends(get_session)) -> dict:
     agent_test = session.get(AgentTest, test_id)
     if agent_test is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Тест не найден")
     return _agent_test_to_dict(agent_test)
 
 
@@ -113,7 +113,7 @@ def update_agent_test(
 ) -> dict:
     agent_test = session.get(AgentTest, test_id)
     if agent_test is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Тест не найден")
     flags_json, fields_json = _encode_payload(payload)
     agent_test.path = payload.path
     agent_test.flags_json = flags_json
@@ -137,7 +137,7 @@ async def launch_agent_test(
 ) -> dict:
     agent_test = session.get(AgentTest, test_id)
     if agent_test is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Тест не найден")
 
     fields = [FieldSpec(**f) for f in json.loads(agent_test.fields_json)]
     flags = [FlagSpec(**f) for f in json.loads(agent_test.flags_json)]
@@ -177,7 +177,7 @@ def agent_test_card_fragment(
 ) -> HTMLResponse:
     agent_test = session.get(AgentTest, test_id)
     if agent_test is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Тест не найден")
     data = _agent_test_to_dict(agent_test)
     return templates.TemplateResponse(
         request,
@@ -192,7 +192,7 @@ def new_agent_fragment(
 ) -> HTMLResponse:
     team = session.get(ReferenceItem, team_id)
     if team is None:
-        raise HTTPException(status_code=404, detail="Team not found")
+        raise HTTPException(status_code=404, detail="Команда не найдена")
     return templates.TemplateResponse(request, "fragments/new_agent_form.html", {"team": team})
 
 
@@ -202,5 +202,5 @@ def new_test_fragment(
 ) -> HTMLResponse:
     agent = session.get(Agent, agent_id)
     if agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Агент не найден")
     return templates.TemplateResponse(request, "fragments/new_test_form.html", {"agent": agent})

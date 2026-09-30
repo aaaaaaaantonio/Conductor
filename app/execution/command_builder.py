@@ -43,7 +43,7 @@ def build_command(
             value = defaults.get(field.flag_name)
         if value is None or value == "":
             if field.required:
-                raise ValueError(f"Missing required field for flag {field.flag_name}")
+                raise ValueError(f"Не заполнено обязательное поле {field.flag_name}")
             continue
         command.append(f"{field.flag_name}={value}")
 

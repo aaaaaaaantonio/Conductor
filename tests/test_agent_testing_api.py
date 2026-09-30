@@ -48,7 +48,7 @@ def test_launch_agent_test_missing_required_field_returns_422(client):
 
     resp = client.post(f"/api/agent-tests/{test['id']}/launch", json={"values": {}})
     assert resp.status_code == 422
-    assert "--users" in resp.json()["detail"]
+    assert resp.json()["detail"] == "Не заполнено обязательное поле --users"
 
 
 def test_create_agent_and_test_with_flags_and_fields(client):
@@ -97,7 +97,7 @@ def test_create_agent_test_for_missing_agent_returns_404(client):
     }
     response = client.post("/api/agents/999999/tests", json=payload)
     assert response.status_code == 404
-    assert response.json()["detail"] == "Agent not found"
+    assert response.json()["detail"] == "Агент не найден"
 
 
 def test_get_agent_test_missing_returns_404(client):
@@ -268,7 +268,11 @@ def test_modal_forms_report_errors_inline_not_via_alert(client):
         assert "formError.bind(form)" in html, url
 
 
-def test_app_js_defines_inline_form_error_helper(client):
-    js = client.get("/static/app.js").text
+def test_inline_form_error_helper_loads_before_page_scripts(client):
+    # Page scripts (e.g. references.html) call formError at load time, so
+    # the helper must be in <head>, not with app.js at the end of <body>.
+    head = client.get("/references").text.split("</head>")[0]
+    assert '<script src="/static/form-error.js"></script>' in head
+    js = client.get("/static/form-error.js").text
     assert "window.formError" in js
     assert 'box.setAttribute("role", "alert")' in js

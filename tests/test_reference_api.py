@@ -118,3 +118,18 @@ def test_renaming_reference_to_existing_value_returns_409(client):
     # Saving an item under its own current value is not a duplicate.
     resp = client.put(f"/api/references/{other['id']}", json={"value": "QA-Frontend"})
     assert resp.status_code == 200
+
+
+def test_references_page_reports_errors_inline_not_via_alert(client):
+    client.post("/api/references", json={"category": "team", "value": "QA"})
+    html = client.get("/references").text
+    assert "alert(" not in html
+    assert "formError.show(form" in html
+    assert "formError.showAfter(" in html
+
+
+def test_duplicate_reference_error_is_in_russian(client):
+    client.post("/api/references", json={"category": "team", "value": "QA"})
+    resp = client.post("/api/references", json={"category": "team", "value": "QA"})
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "Такое значение уже есть в этой категории"

@@ -226,8 +226,10 @@
 
   // --- create forms (team / test_name / dataset) ---
   document.querySelectorAll("form[data-create-category]").forEach(function (form) {
+    formError.bind(form);
     form.addEventListener("submit", function (event) {
       event.preventDefault();
+      formError.clearAll();
       var category = form.dataset.createCategory;
       var value = form.querySelector("input[name=value]").value;
       var commandInput = form.querySelector("input[name=command]");
@@ -244,13 +246,11 @@
         body: JSON.stringify(payload),
       }).then(function (resp) {
         if (resp.ok) { reload(); return; }
-        resp.json().then(function (body) {
-          alert((body && body.detail) || "Не удалось добавить (" + resp.status + ")");
-        }).catch(function () {
-          alert("Не удалось добавить (" + resp.status + ")");
+        formError.fromResponse(resp, "Не удалось добавить").then(function (message) {
+          formError.show(form, message);
         });
       }).catch(function (err) {
-        alert("Не удалось добавить: " + err);
+        formError.show(form, "Не удалось добавить: " + err);
       });
     });
   });
@@ -261,15 +261,28 @@
   // boosted nav away), so a captured node would be a detached stale copy.
   function getStandModal() { return document.getElementById("stand-modal"); }
 
+  function getStandModalBody() { return document.querySelector("#stand-modal .modal-body"); }
+  if (getStandModalBody()) formError.bind(getStandModalBody());
+
+  function openStandModal() {
+    formError.clear(getStandModalBody());
+    getStandModal().classList.add("open");
+  }
+
   function closeStandModal() {
     var modal = getStandModal();
-    if (modal) modal.classList.remove("open");
+    if (!modal) return;
+    modal.classList.remove("open");
+    // The stand was created but some team links failed: show the new state.
+    if (modal.dataset.dirty) reload();
   }
 
   function submitStandModal() {
     var valueInput = document.getElementById("new-stand-value");
     var value = valueInput.value.trim();
     if (!value) { valueInput.focus(); return; }
+    var body = getStandModalBody();
+    formError.clear(body);
     var checked = Array.prototype.slice.call(
       document.querySelectorAll("#new-stand-teams input:checked")
     ).map(function (el) { return Number(el.value); });
@@ -280,8 +293,8 @@
       body: JSON.stringify({ category: "stand", value: value, parent_id: null }),
     }).then(function (resp) {
       if (!resp.ok) {
-        return resp.json().then(function (body) {
-          throw new Error((body && body.detail) || "Не удалось добавить (" + resp.status + ")");
+        return formError.fromResponse(resp, "Не удалось добавить стенд").then(function (message) {
+          throw new Error(message);
         });
       }
       return resp.json();
@@ -291,10 +304,15 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ team_id: teamId, stand_id: stand.id }),
-        });
+        }).then(function (resp) { return resp.ok; }, function () { return false; });
       }));
-    }).then(reload).catch(function (err) {
-      alert(err.message || String(err));
+    }).then(function (linked) {
+      var failed = linked.filter(function (ok) { return !ok; }).length;
+      if (!failed) { reload(); return; }
+      getStandModal().dataset.dirty = "1";
+      formError.show(body, "Стенд создан, но не удалось привязать команд: " + failed + " из " + linked.length);
+    }).catch(function (err) {
+      formError.show(body, err.message || String(err));
     });
   }
 
@@ -320,7 +338,7 @@
     var modalTrigger = e.target.closest('.modal-trigger[data-modal="stand-modal"]');
     if (modalTrigger) {
       e.preventDefault();
-      getStandModal().classList.add("open");
+      openStandModal();
       return;
     }
 
@@ -337,14 +355,18 @@
     var chipRemove = e.target.closest(".team-chip-remove");
     if (chipRemove) {
       e.preventDefault();
+      formError.clearAll();
+      var chips = chipRemove.closest(".stand-teams");
       fetch(
         "/api/references/team-stand-links/" + chipRemove.dataset.teamId + "/" + chipRemove.dataset.standId,
         { method: "DELETE" }
       ).then(function (resp) {
         if (resp.ok) { reload(); return; }
-        alert("Не удалось отвязать (" + resp.status + ")");
+        formError.fromResponse(resp, "Не удалось отвязать").then(function (message) {
+          formError.showAfter(chips, message);
+        });
       }).catch(function (err) {
-        alert("Не удалось отвязать: " + err);
+        formError.showAfter(chips, "Не удалось отвязать: " + err);
       });
       return;
     }
@@ -353,11 +375,15 @@
     if (delBtn) {
       e.preventDefault();
       if (!confirm("Удалить запись?")) return;
+      formError.clearAll();
+      var delAnchor = rowAnchor(delBtn.closest(".ref-row"));
       fetch(delBtn.dataset.deleteUrl, { method: "DELETE" }).then(function (resp) {
         if (resp.ok) { reload(); return; }
-        alert("Не удалось удалить (" + resp.status + ")");
+        formError.fromResponse(resp, "Не удалось удалить").then(function (message) {
+          formError.showAfter(delAnchor, message);
+        });
       }).catch(function (err) {
-        alert("Не удалось удалить: " + err);
+        formError.showAfter(delAnchor, "Не удалось удалить: " + err);
       });
       return;
     }
@@ -375,6 +401,7 @@
     if (cancelBtn) {
       e.preventDefault();
       var row2 = cancelBtn.closest(".ref-row");
+      formError.clearAll();
       row2.innerHTML = row2.dataset.originalHtml;
       delete row2.dataset.editing;
       return;
@@ -388,6 +415,13 @@
       return;
     }
   });
+
+  // Where a row's error goes: after the row itself, or — for a stand, whose
+  // row is the <summary> of a collapsible <details> — after the whole
+  // <details>, so the message stays visible while it is collapsed.
+  function rowAnchor(row) {
+    return row.tagName === "SUMMARY" ? row.parentNode : row;
+  }
 
   function startEdit(row) {
     row.dataset.editing = "1";
@@ -432,6 +466,7 @@
     var parentId = row.dataset.parent ? Number(row.dataset.parent) : null;
     var payload = { value: value, parent_id: parentId };
     if (commandField) payload.command = commandField.value || null;
+    formError.clearAll();
 
     fetch("/api/references/" + row.dataset.id, {
       method: "PUT",
@@ -439,13 +474,11 @@
       body: JSON.stringify(payload),
     }).then(function (resp) {
       if (resp.ok) { reload(); return; }
-      resp.json().then(function (body) {
-        alert((body && body.detail) || "Не удалось сохранить (" + resp.status + ")");
-      }).catch(function () {
-        alert("Не удалось сохранить (" + resp.status + ")");
+      formError.fromResponse(resp, "Не удалось сохранить").then(function (message) {
+        formError.showAfter(rowAnchor(row), message);
       });
     }).catch(function (err) {
-      alert("Не удалось сохранить: " + err);
+      formError.showAfter(rowAnchor(row), "Не удалось сохранить: " + err);
     });
   }
 })();

@@ -48,7 +48,7 @@ def create_reference_item(
         )
     ).first()
     if existing is not None:
-        raise HTTPException(status_code=409, detail="Duplicate value in category")
+        raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
     item.id = None
     session.add(item)
     session.commit()
@@ -68,7 +68,7 @@ def update_reference_item(
 ) -> ReferenceItem:
     item = session.get(ReferenceItem, item_id)
     if item is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Запись не найдена")
     duplicate = session.exec(
         select(ReferenceItem).where(
             ReferenceItem.category == item.category,
@@ -79,7 +79,7 @@ def update_reference_item(
         )
     ).first()
     if duplicate is not None:
-        raise HTTPException(status_code=409, detail="Duplicate value in category")
+        raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
     item.value = payload.value
     item.parent_id = payload.parent_id
     item.command = payload.command
@@ -95,7 +95,7 @@ def soft_delete_reference_item(
 ) -> Response:
     item = session.get(ReferenceItem, item_id)
     if item is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Запись не найдена")
     item.is_active = False
     session.add(item)
     session.commit()
@@ -119,7 +119,7 @@ def unlink_team_stand(
 ) -> Response:
     link = session.get(TeamStandLink, (team_id, stand_id))
     if link is None:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=404, detail="Команда не привязана к этому стенду")
     session.delete(link)
     session.commit()
     return Response(status_code=204)
