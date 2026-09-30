@@ -10,6 +10,7 @@ dependencies = [
     "httpx",
     "jinja2",
     "python-multipart",
+    "cryptography>=50.0.1",
 ]
 
 [dependency-groups]

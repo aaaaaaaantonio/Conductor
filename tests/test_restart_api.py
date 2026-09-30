@@ -64,7 +64,7 @@ def test_restart_triggers_same_jenkins_job_with_build_number(
 def test_restart_calls_tab_specific_hook(client, session, monkeypatch, tab, jenkins_job):
     calls = []
 
-    async def fake_restart(build_number):
+    async def fake_restart(build_number, creds):
         calls.append(build_number)
         return LaunchResult(message="Перезапуск принят", url="https://ci/job/7")
 

@@ -18,7 +18,7 @@ def test_java_tab_renders_without_dataset_field(client):
 def test_launch_java_creates_queued_job(client, session, monkeypatch):
     from app.execution.jenkins_launch import LaunchResult
 
-    async def fake_launch(source, job_name, params):
+    async def fake_launch(source, job_name, params, creds):
         return LaunchResult(message="ok")
 
     # Keep the test off the network: the real hook calls Jenkins.
@@ -117,7 +117,7 @@ def test_launch_java_renders_custom_launch_result(client, session, monkeypatch):
 
     calls = []
 
-    async def fake_launch(source, job_name, params):
+    async def fake_launch(source, job_name, params, creds):
         calls.append((source, job_name, params))
         return LaunchResult(message="Запуск принят", url="https://ci/job/42")
 

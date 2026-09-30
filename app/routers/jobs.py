@@ -4,10 +4,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlmodel import Session, select
 
+from app.credentials import Credentials, get_credentials
 from app.db import get_session
 from app.templating import templates
 from app.execution.broadcaster import broadcaster
@@ -31,7 +33,7 @@ async def jenkins_launch_response(
         request,
         session,
         job,
-        launch_in_jenkins(job.source, job_name, params),
+        lambda creds: launch_in_jenkins(job.source, job_name, params, creds),
         error_prefix="Не удалось отправить запуск в Jenkins",
     )
 
@@ -40,14 +42,14 @@ async def jenkins_restart_response(
     request: Request,
     session: Session,
     job: Job,
-    restart: Callable[[int], Awaitable[LaunchResult]],
+    restart: Callable[[int, Credentials], Awaitable[LaunchResult]],
     build_number: int,
 ) -> HTMLResponse:
     return await jenkins_reply_response(
         request,
         session,
         job,
-        restart(build_number),
+        lambda creds: restart(build_number, creds),
         error_prefix=f"Не удалось перезапустить сборку #{build_number}",
         restart_build=build_number,
     )
@@ -57,19 +59,36 @@ async def jenkins_reply_response(
     request: Request,
     session: Session,
     job: Job,
-    send: Awaitable[LaunchResult],
+    send: Callable[[Credentials], Awaitable[LaunchResult]],
     error_prefix: str,
     restart_build: Optional[int] = None,
 ) -> HTMLResponse:
-    """Await a Jenkins launch/restart hook, record the outcome on `job` and
-    render its reply card for the log-panel feed."""
-    try:
-        result = await send
-        job.status = "triggered"
-        job.jenkins_build_id = result.url
-    except Exception as exc:
+    """Run a Jenkins launch/restart hook with the user's tokens, record the
+    outcome on `job` and render its reply card for the log-panel feed."""
+    creds = get_credentials(request)
+    auth_link = False
+    if creds is None:
         job.status = "failed"
-        result = LaunchResult(message=f"{error_prefix}: {exc}")
+        result = LaunchResult(message="Токены Jenkins не заданы — введите их на странице «Доступы»")
+        auth_link = True
+    else:
+        try:
+            result = await send(creds)
+            job.status = "triggered"
+            job.jenkins_build_id = result.url
+        except httpx.HTTPStatusError as exc:
+            job.status = "failed"
+            code = exc.response.status_code
+            if code in (401, 403):
+                result = LaunchResult(
+                    message=f"{error_prefix}: Jenkins отклонил токен ({code}) — обновите его на странице «Доступы»"
+                )
+                auth_link = True
+            else:
+                result = LaunchResult(message=f"{error_prefix}: {exc}")
+        except Exception as exc:
+            job.status = "failed"
+            result = LaunchResult(message=f"{error_prefix}: {exc}")
     session.add(job)
     session.commit()
 
@@ -86,6 +105,7 @@ async def jenkins_reply_response(
             "url": result.url,
             "failed": job.status == "failed",
             "restart_build": restart_build,
+            "auth_link": auth_link,
         },
         headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
     )

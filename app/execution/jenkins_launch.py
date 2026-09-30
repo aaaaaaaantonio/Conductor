@@ -4,6 +4,7 @@ from typing import Optional
 import httpx
 
 from app.config import JENKINS_BASE_URL, JENKINS_JOB_NAMES
+from app.credentials import Credentials
 from app.execution.jenkins_client import trigger_build
 
 
@@ -13,7 +14,9 @@ class LaunchResult:
     url: Optional[str] = None
 
 
-async def launch_in_jenkins(source: str, job_name: str, params: dict) -> LaunchResult:
+async def launch_in_jenkins(
+    source: str, job_name: str, params: dict, creds: Credentials
+) -> LaunchResult:
     """Send a user's launch to Jenkins and build the reply shown to them.
 
     Called synchronously when the user presses "Запустить" in Jenkins mode
@@ -21,13 +24,17 @@ async def launch_in_jenkins(source: str, job_name: str, params: dict) -> LaunchR
     "python"; `params` are the non-empty form values. Whatever this returns
     is rendered in the log panel: `message` as text and `url`, if set, as a
     link. Raise to report a failure — the error text is shown instead.
+    `creds` are the user's own tokens from the "Доступы" page; the call
+    never runs without them.
     """
     async with httpx.AsyncClient() as client:
-        url = await trigger_build(JENKINS_BASE_URL, job_name, params, client)
+        url = await trigger_build(
+            JENKINS_BASE_URL, job_name, params, client, auth=creds.jenkins_auth()
+        )
     return LaunchResult(message="Сборка отправлена в Jenkins", url=url)
 
 
-async def restart_java(build_number: int) -> LaunchResult:
+async def restart_java(build_number: int, creds: Credentials) -> LaunchResult:
     """Restart a Java run: the "Перезапустить" button on the Java tab.
 
     `build_number` is the Jenkins build number the user entered (an int
@@ -37,11 +44,17 @@ async def restart_java(build_number: int) -> LaunchResult:
     """
     params = {"restart_build": build_number}
     async with httpx.AsyncClient() as client:
-        url = await trigger_build(JENKINS_BASE_URL, JENKINS_JOB_NAMES["java"], params, client)
+        url = await trigger_build(
+            JENKINS_BASE_URL,
+            JENKINS_JOB_NAMES["java"],
+            params,
+            client,
+            auth=creds.jenkins_auth(),
+        )
     return LaunchResult(message=f"Перезапуск сборки #{build_number} отправлен в Jenkins", url=url)
 
 
-async def restart_python(build_number: int) -> LaunchResult:
+async def restart_python(build_number: int, creds: Credentials) -> LaunchResult:
     """Restart a Python run: the "Перезапустить" button on the Python tab.
 
     Same contract as restart_java; the restart goes to the same Jenkins job
@@ -49,5 +62,11 @@ async def restart_python(build_number: int) -> LaunchResult:
     """
     params = {"restart_build": build_number}
     async with httpx.AsyncClient() as client:
-        url = await trigger_build(JENKINS_BASE_URL, JENKINS_JOB_NAMES["python"], params, client)
+        url = await trigger_build(
+            JENKINS_BASE_URL,
+            JENKINS_JOB_NAMES["python"],
+            params,
+            client,
+            auth=creds.jenkins_auth(),
+        )
     return LaunchResult(message=f"Перезапуск сборки #{build_number} отправлен в Jenkins", url=url)

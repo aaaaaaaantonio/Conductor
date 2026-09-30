@@ -339,3 +339,19 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
   padding:32px 16px; color:var(--ink-faint); font-size:.88rem; text-align:center;
 }
+
+/* ---------- credentials page ---------- */
+.layout.creds{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:start; max-width:960px}
+@media (max-width:800px){ .layout.creds{grid-template-columns:minmax(0,1fr)} }
+.creds-status{display:grid; grid-template-columns:auto 1fr; gap:10px 16px; margin:0 0 18px; font-size:14px}
+.creds-status dt{color:var(--ink-faint)}
+.creds-status dd{margin:0; color:var(--ink)}
+.creds-dot{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--ink-faint); margin-right:8px; vertical-align:1px}
+.creds-dot.ok{background:var(--accent)}
+.creds-empty{color:var(--ink-soft); margin:0; font-size:14px}
+.creds-note{border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:13.5px}
+.creds-note.ok{background:var(--accent-soft); color:var(--accent-strong)}
+.creds-note.failed{background:rgba(214,90,60,.12); color:#c0492c}
+.creds-optional{color:var(--ink-faint); font-weight:400}
+.creds-help{color:var(--ink-faint); font-size:12.5px; line-height:1.5; margin:16px 0 0}
+.layout.creds .checkbox-row{margin-bottom:10px}
