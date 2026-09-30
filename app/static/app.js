@@ -17,7 +17,7 @@
   document.body.addEventListener("click", function (e) {
     var row = e.target.closest(".job-row");
     if (!row) return;
-    var list = row.closest("#job-list");
+    var list = row.closest("#job-list, #history-list");
     if (list) setActiveJobRow(list, Number(row.dataset.job));
   });
 
@@ -25,7 +25,7 @@
     // Re-apply the selection highlight after the job list refreshes
     // (periodic sse:job-status trigger), so the row stays marked selected
     // even though the fragment swap replaced it with a fresh element.
-    if (e.target.id !== "job-list") return;
+    if (e.target.id !== "job-list" && e.target.id !== "history-list") return;
     var activeLog = document.querySelector("#job-log-body .log[data-job]");
     if (activeLog) setActiveJobRow(e.target, Number(activeLog.dataset.job));
   });

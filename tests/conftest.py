@@ -17,7 +17,7 @@ def make_test_credentials() -> Credentials:
 
 
 @pytest.fixture(name="session")
-def session_fixture(monkeypatch):
+def session_fixture(monkeypatch, tmp_path):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -29,6 +29,8 @@ def session_fixture(monkeypatch):
     # engine at the same in-memory test database so those background-task
     # sessions see the rows created through `client` in the same test.
     monkeypatch.setattr(db, "engine", engine)
+    # The startup purge sweeps old log files; keep it off the real job_logs/.
+    monkeypatch.setattr("app.retention.LOG_DIR", tmp_path / "job_logs")
     with Session(engine) as session:
         yield session
 

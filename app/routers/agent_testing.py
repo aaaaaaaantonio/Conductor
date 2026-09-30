@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from app.config import JOB_LOG_DIR
 from app.db import get_session
 from app.templating import templates
 from app.execution.command_builder import FieldSpec, FlagSpec, build_command
@@ -18,7 +19,7 @@ from app.models.reference import ReferenceItem, active_references
 
 router = APIRouter(tags=["agent-testing"])
 
-LOG_DIR = Path("job_logs")
+LOG_DIR = Path(JOB_LOG_DIR)
 
 
 class AgentCreateRequest(BaseModel):

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
-from app.config import JENKINS_JOB_NAMES
+from app.config import JENKINS_JOB_NAMES, JOB_LOG_DIR
 from app.db import get_session
 from app.execution.jenkins_launch import restart_java
 from app.templating import templates
@@ -13,7 +13,7 @@ from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
 
 router = APIRouter(tags=["launch-java"])
-LOG_DIR = Path("job_logs")
+LOG_DIR = Path(JOB_LOG_DIR)
 
 
 @router.get("/java", response_class=HTMLResponse)

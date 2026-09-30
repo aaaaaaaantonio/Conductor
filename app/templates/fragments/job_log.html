@@ -8,5 +8,16 @@
 {% endif %}
 <div class="log" data-job="{{ job.id if job else '' }}">
 {% for line in lines %}<div><span class="ln">{{ loop.index }}</span>{{ line }}</div>{% endfor %}
-{% if not lines %}<div class="log-empty-hint">Лог пока пуст</div>{% endif %}
+{% if not lines %}
+  {% set via_jenkins = job and (job.jenkins_build_id or job.status in ('triggering', 'triggered') or job.source == 'java') %}
+  {% if job and not job.log_path and (via_jenkins or job.status not in ('queued', 'running')) %}
+    {# No local log (Jenkins run, or a VM run that never started): show
+       what was sent and, for Jenkins, where. #}
+    <div class="log-empty-hint">{{ "Запуск через Jenkins — лог смотрите в самой сборке" if via_jenkins else "Локального лога нет — запуск не успел стартовать" }}</div>
+    {% if job.jenkins_build_id %}<div class="log-empty-hint"><a class="launch-msg-link" href="{{ job.jenkins_build_id }}" target="_blank" rel="noopener">{{ job.jenkins_build_id }}</a></div>{% endif %}
+    <div class="log-empty-hint log-params">{{ job.params_json }}</div>
+  {% else %}
+    <div class="log-empty-hint">Лог пока пуст</div>
+  {% endif %}
+{% endif %}
 </div>

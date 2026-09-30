@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -5,6 +8,7 @@ from sqlmodel import Session, select
 
 from app.credentials import credentials_middleware
 from app.db import init_db
+from app.retention import purge_loop, run_purge
 from app.models.jobs import Job
 from app.routers.references import router as references_router
 from app.routers.references import page_router as references_page_router
@@ -13,6 +17,7 @@ from app.routers.agent_testing import router as agent_testing_router
 from app.routers.launch_python import router as launch_python_router
 from app.routers.launch_java import router as launch_java_router
 from app.routers.credentials import router as credentials_router
+from app.routers.history import router as history_router
 
 
 def recover_stale_jobs(session: Session) -> None:
@@ -33,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(launch_python_router)
     app.include_router(launch_java_router)
     app.include_router(credentials_router)
+    app.include_router(history_router)
     # check_dir=False: the real htmx.min.js/sse.js assets are fetched as a
     # manual deploy step (see the Task 11 brief), so this directory may not
     # exist yet when tests construct the app — a missing directory must not
@@ -42,7 +48,7 @@ def create_app() -> FastAPI:
     )
 
     @app.on_event("startup")
-    def on_startup() -> None:
+    async def on_startup() -> None:
         init_db()
         # Import app.db.engine here, not at module top: tests monkeypatch
         # app.db.engine to an in-memory database (see tests/conftest.py),
@@ -52,6 +58,15 @@ def create_app() -> FastAPI:
 
         with Session(engine) as session:
             recover_stale_jobs(session)
+        run_purge()
+        app.state.purge_task = asyncio.create_task(purge_loop())
+
+    @app.on_event("shutdown")
+    async def on_shutdown() -> None:
+        task = app.state.purge_task
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
     @app.get("/health")
     def health() -> dict[str, str]:

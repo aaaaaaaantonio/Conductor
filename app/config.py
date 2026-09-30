@@ -27,3 +27,7 @@ CREDS_REFRESH_AFTER = int(os.environ.get("CREDS_REFRESH_AFTER", 60))
 # Hard cap since the tokens were entered, however active the user is.
 # 10 years by default — effectively "never" while still bounded.
 CREDS_MAX_LIFETIME = int(os.environ.get("CREDS_MAX_LIFETIME", 10 * 365 * 86400))
+
+JOB_LOG_DIR = os.environ.get("JOB_LOG_DIR", "job_logs")
+# Finished jobs and their log files are deleted after this many days.
+JOB_RETENTION_DAYS = int(os.environ.get("JOB_RETENTION_DAYS", 5))

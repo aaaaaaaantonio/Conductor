@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}История{% endblock %}
+{% block subtitle %}Запуски за последние {{ retention_days }} дн. — более старые удаляются автоматически{% endblock %}
+{% block content %}
+<div class="layout history" hx-ext="sse" sse-connect="/jobs/stream">
+  <div class="panel">
+    <h2>Запуски</h2>
+    {# Any change re-queries the list; "sse:job-status" keeps statuses of
+       running VM jobs current with the same filters applied. #}
+    <form id="hist-filters" class="hist-filters"
+          hx-get="/history/fragments/list" hx-target="#history-list" hx-swap="innerHTML"
+          hx-trigger="change, sse:job-status">
+      <div class="field">
+        <label for="h-source">Источник</label>
+        <select id="h-source" name="source">
+          <option value="">Все</option>
+          {% for value, label in sources.items() %}<option value="{{ value }}"{% if filters.source == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="h-status">Статус</label>
+        <select id="h-status" name="status">
+          <option value="">Все</option>
+          {% for value, label in statuses.items() %}<option value="{{ value }}"{% if filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="h-from">С даты</label>
+        <input id="h-from" name="date_from" type="date" value="{{ filters.date_from or '' }}">
+      </div>
+      <div class="field">
+        <label for="h-to">По дату</label>
+        <input id="h-to" name="date_to" type="date" value="{{ filters.date_to or '' }}">
+      </div>
+    </form>
+    <div id="history-list">{% include "fragments/history_list.html" %}</div>
+    <div sse-swap="log-line,job-status" hx-swap="none" hidden></div>
+  </div>
+
+  <div class="panel log-panel">
+    <h2>Лог</h2>
+    <div id="job-log-body">
+      <div class="empty-log"><span class="glyph">▤</span>Выберите запуск в списке, чтобы увидеть лог</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
