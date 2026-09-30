@@ -151,6 +151,8 @@
     dot.classList.remove("run", "ok", "fail");
     if (STATUS_CLASSES[event.status]) dot.classList.add(STATUS_CLASSES[event.status]);
     head.querySelector(".job-id").textContent = event.status;
+    var stop = head.querySelector(".log-stop");
+    if (stop && event.status !== "queued" && event.status !== "running") stop.remove();
   }
 
   document.body.addEventListener("htmx:sseMessage", function (e) {

@@ -1,3 +1,4 @@
+import asyncio
 import html
 import json
 from datetime import datetime
@@ -5,7 +6,7 @@ from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlmodel import Session, select
 
@@ -14,6 +15,7 @@ from app.db import get_session
 from app.templating import templates
 from app.execution.broadcaster import broadcaster
 from app.execution.jenkins_launch import LaunchResult, launch_in_jenkins
+from app.execution.runner import cancel_job
 from app.models.jobs import Job
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -109,6 +111,38 @@ async def jenkins_reply_response(
         },
         headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
     )
+
+
+@router.post("/{job_id}/cancel", response_class=HTMLResponse)
+async def cancel_job_endpoint(
+    request: Request, job_id: int, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    """The "Остановить" button: kill a VM job's process (or keep a queued one
+    from starting) and mark it cancelled. Jenkins runs aren't tracked, so
+    they can't be stopped from here."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Джоба не найдена")
+    if job.status not in ("queued", "running"):
+        raise HTTPException(status_code=409, detail="Джоба уже не выполняется")
+
+    killed = cancel_job(job_id)
+    if killed:
+        # The runner notices the exit, logs it and sets "cancelled" itself;
+        # give it a moment so the panel re-renders in the final state.
+        for _ in range(50):
+            await asyncio.sleep(0.05)
+            session.refresh(job)
+            if job.status != "running":
+                break
+    else:
+        # Queued, or "running" with no live process (e.g. left over from a
+        # restart): nothing to kill, just record the stop.
+        job.status = "cancelled"
+        session.add(job)
+        session.commit()
+        await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": "cancelled"})
+    return job_log_fragment(request, job_id, session)
 
 
 @router.get("/{job_id}/fragments/log", response_class=HTMLResponse)

@@ -4,6 +4,12 @@
     <span class="dot {{ status_cls }}"></span>
     <span class="job-name">job #{{ job.id }} · {{ job.source }}</span>
     <span class="job-id">{{ job.status }}</span>
+    {% if job.status in ('queued', 'running') %}
+      {# Hidden by app.js once a job-status event says the job finished. #}
+      <button type="button" class="log-stop" hx-post="/jobs/{{ job.id }}/cancel"
+              hx-target="#job-log-body" hx-swap="innerHTML"
+              hx-confirm="Остановить job #{{ job.id }}?">■ Остановить</button>
+    {% endif %}
   </div>
 {% endif %}
 <div class="log" data-job="{{ job.id if job else '' }}">

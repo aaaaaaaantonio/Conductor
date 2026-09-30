@@ -18,6 +18,7 @@ STATUSES = {
     "running": "Выполняется",
     "success": "Успешно",
     "failed": "Ошибка",
+    "cancelled": "Остановлено",
     "triggered": "В Jenkins",
 }
 # Retention keeps the table small; this only guards the page itself.

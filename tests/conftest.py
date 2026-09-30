@@ -52,3 +52,17 @@ def client_fixture(session):
         )
         yield client
     app_instance.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_runner_state():
+    # Stopping a queued job records its id until the runner picks the job
+    # up. In the app that always happens; tests create queued rows without
+    # a runner, and job ids restart at 1 per test database.
+    from app.execution import runner
+
+    runner._processes.clear()
+    runner._cancel_requested.clear()
+    yield
+    runner._processes.clear()
+    runner._cancel_requested.clear()

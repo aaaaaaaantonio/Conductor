@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import httpx
+import pytest
 from sqlmodel import select
 
 from app.execution.broadcaster import broadcaster
@@ -241,3 +242,80 @@ def test_job_updated_at_changes_on_update(session):
     session.refresh(job)
 
     assert job.updated_at > created_updated_at
+
+
+def _job(session, status, **kw):
+    job = Job(source="python", status=status, params_json="{}", **kw)
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def test_cancel_queued_job_marks_cancelled_without_process(client, session):
+    job = _job(session, "queued")
+
+    resp = client.post(f"/jobs/{job.id}/cancel")
+
+    assert resp.status_code == 200
+    session.refresh(job)
+    assert job.status == "cancelled"
+    assert "cancelled" in resp.text
+    assert "Остановить" not in resp.text
+
+
+def test_cancel_running_job_kills_its_process(client, session, monkeypatch):
+    job = _job(session, "running")
+    calls = []
+
+    def fake_cancel(job_id):
+        calls.append(job_id)
+        # What the runner does once the killed process exits.
+        job.status = "cancelled"
+        session.add(job)
+        session.commit()
+        return True
+
+    monkeypatch.setattr("app.routers.jobs.cancel_job", fake_cancel)
+
+    resp = client.post(f"/jobs/{job.id}/cancel")
+
+    assert resp.status_code == 200
+    assert calls == [job.id]
+    assert "Остановить" not in resp.text
+
+
+def test_running_job_without_process_is_marked_cancelled(client, session, monkeypatch):
+    # e.g. the process already exited but the row wasn't updated yet, or a
+    # stale "running" row: nothing to kill, still honour the stop.
+    job = _job(session, "running")
+    monkeypatch.setattr("app.routers.jobs.cancel_job", lambda job_id: False)
+
+    client.post(f"/jobs/{job.id}/cancel")
+
+    session.refresh(job)
+    assert job.status == "cancelled"
+
+
+@pytest.mark.parametrize("status", ["success", "failed", "cancelled", "triggered", "triggering"])
+def test_cannot_cancel_finished_or_jenkins_jobs(client, session, status):
+    job = _job(session, status)
+    resp = client.post(f"/jobs/{job.id}/cancel")
+    assert resp.status_code == 409
+    session.refresh(job)
+    assert job.status == status
+
+
+def test_cancel_missing_job_is_404(client):
+    assert client.post("/jobs/999/cancel").status_code == 404
+
+
+@pytest.mark.parametrize("status,shown", [("running", True), ("queued", True), ("success", False)])
+def test_log_panel_shows_stop_button_only_for_active_jobs(client, session, status, shown):
+    job = _job(session, status)
+    html = client.get(f"/jobs/{job.id}/fragments/log").text
+    assert (f'hx-post="/jobs/{job.id}/cancel"' in html) is shown
+
+
+def test_history_offers_cancelled_status_filter(client):
+    assert '<option value="cancelled"' in client.get("/history").text
