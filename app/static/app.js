@@ -8,6 +8,50 @@
   if (window.__testRunnerAppInit) return;
   window.__testRunnerAppInit = true;
 
+  // Modal forms on the agent-testing page report API errors inline, above
+  // the form's footer, instead of alert(). Their fragment scripts run after
+  // this file has loaded, so they can rely on window.formError.
+  function detailText(detail) {
+    if (typeof detail === "string") return detail;
+    // FastAPI validation errors: [{loc: [...], msg: "..."}, ...]
+    if (Array.isArray(detail)) {
+      return detail.map(function (d) {
+        var field = d && d.loc ? d.loc[d.loc.length - 1] : "";
+        return (field ? field + ": " : "") + (d && d.msg ? d.msg : String(d));
+      }).join("; ");
+    }
+    return "";
+  }
+
+  window.formError = {
+    show: function (form, message) {
+      var box = form.querySelector(".form-error");
+      if (!box) {
+        box = document.createElement("div");
+        box.className = "form-error";
+        box.setAttribute("role", "alert");
+        form.insertBefore(box, form.querySelector(".modal-foot"));
+      }
+      box.textContent = message;
+      box.scrollIntoView({ block: "nearest" });
+    },
+    clear: function (form) {
+      var box = form.querySelector(".form-error");
+      if (box) box.remove();
+    },
+    // Resolves to the error text for a failed fetch() response.
+    fromResponse: function (resp, fallback) {
+      var generic = fallback + " (" + resp.status + ")";
+      return resp.json().then(function (body) {
+        return detailText(body && body.detail) || generic;
+      }).catch(function () { return generic; });
+    },
+    // Wire a form: clear the message as soon as the user edits anything.
+    bind: function (form) {
+      form.addEventListener("input", function () { window.formError.clear(form); });
+    },
+  };
+
   function setActiveJobRow(list, jobId) {
     list.querySelectorAll(".job-row").forEach(function (row) {
       row.classList.toggle("selected", Number(row.dataset.job) === jobId);

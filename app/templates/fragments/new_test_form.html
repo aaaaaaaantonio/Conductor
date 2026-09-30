@@ -81,8 +81,10 @@
 
   var form = document.getElementById("new-test-form");
   var submitBtn = document.getElementById("new-test-submit");
+  formError.bind(form);
   form.addEventListener("submit", function (event) {
     event.preventDefault();
+    formError.clear(form);
     var fields = [];
     container.querySelectorAll(".field-row").forEach(function (row) {
       var flag = row.querySelector(".f-flag").value.trim();
@@ -113,14 +115,12 @@
         return;
       }
       submitBtn.disabled = false;
-      resp.json().then(function (body) {
-        alert((body && body.detail) || "Не удалось создать тест (" + resp.status + ")");
-      }).catch(function () {
-        alert("Не удалось создать тест (" + resp.status + ")");
+      formError.fromResponse(resp, "Не удалось создать тест").then(function (message) {
+        formError.show(form, message);
       });
     }).catch(function (err) {
       submitBtn.disabled = false;
-      alert("Не удалось создать тест: " + err);
+      formError.show(form, "Не удалось создать тест: " + err);
     });
   });
 })();

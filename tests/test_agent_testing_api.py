@@ -248,3 +248,27 @@ def test_card_shows_fixed_flags_and_flag_defaults(client):
     # separate fixed flag.
     assert "--users=10" not in html
     assert 'placeholder="по умолчанию: 10"' in html
+
+
+def test_modal_forms_report_errors_inline_not_via_alert(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    test = client.post(
+        f"/api/agents/{agent['id']}/tests", json={"path": "t.py", "flags": [], "fields": []}
+    ).json()
+
+    for url in (
+        f"/agent-testing/tests/{test['id']}/fragments/card",
+        f"/agent-testing/agents/{agent['id']}/fragments/new-test",
+        f"/agent-testing/teams/{team['id']}/fragments/new-agent",
+    ):
+        html = client.get(url).text
+        assert "alert(" not in html, url
+        assert "formError.show(form" in html, url
+        assert "formError.bind(form)" in html, url
+
+
+def test_app_js_defines_inline_form_error_helper(client):
+    js = client.get("/static/app.js").text
+    assert "window.formError" in js
+    assert 'box.setAttribute("role", "alert")' in js

@@ -73,8 +73,10 @@
   // rather than silently dropped.
   var form = document.getElementById("launch-form-{{ test.id }}");
   var submitBtn = document.getElementById("launch-submit-{{ test.id }}");
+  formError.bind(form);
   form.addEventListener("submit", function (event) {
     event.preventDefault();
+    formError.clear(form);
     var values = {};
     Array.prototype.forEach.call(form.elements, function (el) {
       if (!el.name) return;
@@ -93,14 +95,12 @@
         }
         return;
       }
-      resp.json().then(function (body) {
-        alert((body && body.detail) || "Launch failed (" + resp.status + ")");
-      }).catch(function () {
-        alert("Launch failed (" + resp.status + ")");
+      formError.fromResponse(resp, "Не удалось запустить тест").then(function (message) {
+        formError.show(form, message);
       });
     }).catch(function (err) {
       submitBtn.disabled = false;
-      alert("Launch failed: " + err);
+      formError.show(form, "Не удалось запустить тест: " + err);
     });
   });
 })();

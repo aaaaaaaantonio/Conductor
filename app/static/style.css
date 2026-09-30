@@ -365,3 +365,10 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .hist-more{color:var(--ink-faint); font-size:12.5px; text-align:center; padding:8px}
 .log .log-params{font-size:12px; word-break:break-all; margin-top:8px}
 @media (max-width:480px){ .hist-row{gap:8px; padding:10px} .hist-row .job-status{padding:2px 6px} }
+
+/* inline API error in modal forms (window.formError in app.js) */
+.form-error{
+  margin-top:14px; padding:10px 12px; border-radius:8px; font-size:13px; line-height:1.45;
+  border:1px solid var(--status-fail); background:var(--status-fail-bg); color:var(--status-fail);
+  white-space:pre-wrap; word-break:break-word;
+}

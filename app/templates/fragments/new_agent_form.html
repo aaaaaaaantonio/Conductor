@@ -15,8 +15,10 @@
 (function () {
   var form = document.getElementById("new-agent-form");
   var submitBtn = document.getElementById("new-agent-submit");
+  formError.bind(form);
   form.addEventListener("submit", function (event) {
     event.preventDefault();
+    formError.clear(form);
     submitBtn.disabled = true;
     fetch("/api/agents", {
       method: "POST",
@@ -28,14 +30,12 @@
         return;
       }
       submitBtn.disabled = false;
-      resp.json().then(function (body) {
-        alert((body && body.detail) || "Не удалось создать агента (" + resp.status + ")");
-      }).catch(function () {
-        alert("Не удалось создать агента (" + resp.status + ")");
+      formError.fromResponse(resp, "Не удалось создать агента").then(function (message) {
+        formError.show(form, message);
       });
     }).catch(function (err) {
       submitBtn.disabled = false;
-      alert("Не удалось создать агента: " + err);
+      formError.show(form, "Не удалось создать агента: " + err);
     });
   });
 })();
