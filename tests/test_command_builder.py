@@ -60,3 +60,16 @@ def test_build_command_checkbox_field_overrides_bool_flag():
 
     assert build_command("t.py", fields, {"--verbose": False}, flags) == ["t.py"]
     assert build_command("t.py", fields, {"--verbose": True}, flags) == ["t.py", "--verbose"]
+
+
+@pytest.mark.parametrize("value", ["abc", "1; rm -rf /", "1e", "nan"])
+def test_build_command_rejects_non_numeric_number_field(value):
+    fields = [FieldSpec(label="Users", flag_name="--users", type="number", required=False)]
+    with pytest.raises(ValueError, match="--users"):
+        build_command("t.py", fields, {"--users": value})
+
+
+@pytest.mark.parametrize("value", [25, "25", "-3", "1.5"])
+def test_build_command_accepts_numeric_number_field(value):
+    fields = [FieldSpec(label="Users", flag_name="--users", type="number", required=False)]
+    assert build_command("t.py", fields, {"--users": value}) == ["t.py", f"--users={value}"]

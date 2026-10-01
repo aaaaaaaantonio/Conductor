@@ -520,3 +520,98 @@ def test_log_panel_shows_stop_button_only_for_active_jobs(client, session, statu
 
 def test_history_offers_cancelled_status_filter(client):
     assert '<option value="cancelled"' in client.get("/history").text
+
+
+def _refs(client):
+    def ref(category, value, parent_id=None):
+        payload = {"category": category, "value": value, "parent_id": parent_id}
+        return client.post("/api/references", json=payload).json()["id"]
+
+    team = ref("team", "QA")
+    other_team = ref("team", "Other")
+    test = ref("test_name", "smoke", team)
+    other_test = ref("test_name", "other-smoke", other_team)
+    return {
+        "team": team,
+        "stand": ref("stand", "stage-1"),
+        "test": test,
+        "dataset": ref("dataset", "ds-1", test),
+        "other_test": other_test,
+        "other_dataset": ref("dataset", "ds-2", other_test),
+    }
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"team_id": 999},
+        {"team_id": "stand"},
+        {"stand_id": 999},
+        {"stand_id": "team"},
+        {"test_name_id": 999},
+        {"test_name_id": "other_test"},
+        {"dataset_id": "other_dataset"},
+        {"dataset_id": "dataset", "test_name_id": None},
+    ],
+)
+@pytest.mark.parametrize("mode", ["vm", "jenkins"])
+def test_python_launch_rejects_unknown_or_mismatched_references(client, session, monkeypatch, bad, mode):
+    import app.routers.launch_python as launch_python
+
+    launched = []
+    monkeypatch.setattr(launch_python, "start_local_job_with_own_session", lambda *a, **kw: launched.append(a))
+    refs = _refs(client)
+    form = {
+        "team_id": refs["team"],
+        "stand_id": refs["stand"],
+        "regression_type": "regression",
+        "execution_mode": mode,
+        "test_name_id": refs["test"],
+        "dataset_id": refs["dataset"],
+    }
+    for key, value in bad.items():
+        form[key] = refs.get(value, value)
+    form = {k: v for k, v in form.items() if v is not None}
+
+    resp = client.post("/python/launch", data=form)
+
+    assert resp.status_code == 200
+    assert resp.headers["HX-Retarget"] == "#job-log-body"
+    assert "не найден" in resp.text
+    assert launched == []
+    assert session.exec(select(Job)).all() == []
+
+
+def test_python_launch_rejects_soft_deleted_team(client, session):
+    refs = _refs(client)
+    client.delete(f"/api/references/{refs['team']}")
+
+    resp = client.post(
+        "/python/launch",
+        data={"team_id": refs["team"], "stand_id": refs["stand"], "regression_type": "r", "execution_mode": "vm"},
+    )
+
+    assert "не найден" in resp.text
+    assert session.exec(select(Job)).all() == []
+
+
+def test_python_launch_accepts_matching_references(client, session, monkeypatch):
+    import app.routers.launch_python as launch_python
+
+    launched = []
+    monkeypatch.setattr(launch_python, "start_local_job_with_own_session", lambda *a, **kw: launched.append(a))
+    refs = _refs(client)
+
+    client.post(
+        "/python/launch",
+        data={
+            "team_id": refs["team"],
+            "stand_id": refs["stand"],
+            "regression_type": "regression",
+            "execution_mode": "vm",
+            "test_name_id": refs["test"],
+            "dataset_id": refs["dataset"],
+        },
+    )
+
+    assert len(launched) == 1

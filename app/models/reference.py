@@ -56,3 +56,34 @@ def sibling_references(
 def next_sort_order(session: Session, category: str, parent_id: int | None) -> int:
     siblings = sibling_references(session, category, parent_id)
     return max((s.sort_order for s in siblings), default=-1) + 1
+
+
+def launch_reference_error(
+    session: Session,
+    team_id: int,
+    stand_id: int,
+    test_name_id: int | None,
+    dataset_id: int | None = None,
+) -> str | None:
+    """Why a launch form's selection can't be run, or None if it can: each
+    id must be an active item of its category, the test must belong to the
+    team and the dataset to the test. Catches stale or hand-made forms."""
+
+    def active(item_id: int, category: str, parent_id: int | None = None) -> bool:
+        item = session.get(ReferenceItem, item_id)
+        return (
+            item is not None
+            and item.is_active
+            and item.category == category
+            and (parent_id is None or item.parent_id == parent_id)
+        )
+
+    if not active(team_id, "team"):
+        return "Команда не найдена или удалена — обновите страницу"
+    if not active(stand_id, "stand"):
+        return "Стенд не найден или удалён — обновите страницу"
+    if test_name_id is not None and not active(test_name_id, "test_name", team_id):
+        return "Тест не найден у этой команды — обновите страницу"
+    if dataset_id is not None and (test_name_id is None or not active(dataset_id, "dataset", test_name_id)):
+        return "Датасет не найден у этого теста — обновите страницу"
+    return None

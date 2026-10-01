@@ -20,34 +20,34 @@ from app.templating import templates
 router = APIRouter(tags=["agent-testing"])
 
 
-AgentName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class AgentCreateRequest(BaseModel):
     team_id: int
-    name: AgentName
+    name: NonBlank
 
 
 class AgentRenameRequest(BaseModel):
-    name: AgentName
+    name: NonBlank
 
 
 class FlagPayload(BaseModel):
-    name: str
+    name: NonBlank
     kind: Literal["bool", "value"]
     default: str | None = None
 
 
 class FieldPayload(BaseModel):
     label: str
-    flag_name: str
+    flag_name: NonBlank
     type: Literal["text", "number", "select", "checkbox", "path"]
     required: bool
     options: list[str] | None = None
 
 
 class AgentTestPayload(BaseModel):
-    path: str
+    path: NonBlank
     flags: list[FlagPayload]
     fields: list[FieldPayload]
 

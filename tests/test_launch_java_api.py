@@ -25,12 +25,13 @@ def test_launch_java_creates_queued_job(client, session, monkeypatch):
     monkeypatch.setattr("app.routers.jobs.launch_in_jenkins", fake_launch)
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
 
     resp = client.post(
         "/java/launch",
         data={
             "team_id": team["id"],
-            "stand_id": 1,
+            "stand_id": stand["id"],
             "regression_type": "regression",
             "part": "back",
         },
@@ -55,12 +56,13 @@ def test_launch_java_jenkins_mode_triggers_build(client, session, monkeypatch):
     )
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
 
     resp = client.post(
         "/java/launch",
         data={
             "team_id": team["id"],
-            "stand_id": 1,
+            "stand_id": stand["id"],
             "regression_type": "regression",
             "part": "back",
         },
@@ -92,12 +94,13 @@ def test_launch_java_shows_error_when_jenkins_rejects(client, session, monkeypat
     )
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
 
     resp = client.post(
         "/java/launch",
         data={
             "team_id": team["id"],
-            "stand_id": 1,
+            "stand_id": stand["id"],
             "regression_type": "regression",
             "part": "back",
         },
@@ -124,12 +127,13 @@ def test_launch_java_renders_custom_launch_result(client, session, monkeypatch):
     monkeypatch.setattr("app.routers.jobs.launch_in_jenkins", fake_launch)
 
     team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
 
     resp = client.post(
         "/java/launch",
         data={
             "team_id": team["id"],
-            "stand_id": 1,
+            "stand_id": stand["id"],
             "regression_type": "regression",
             "part": "back",
         },
@@ -139,7 +143,7 @@ def test_launch_java_renders_custom_launch_result(client, session, monkeypatch):
         (
             "java",
             "java-tests",
-            {"team_id": team["id"], "stand_id": 1, "regression_type": "regression", "part": "back"},
+            {"team_id": team["id"], "stand_id": stand["id"], "regression_type": "regression", "part": "back"},
         )
     ]
     assert "Запуск принят" in resp.text
@@ -174,3 +178,47 @@ def test_dependent_selects_replace_their_options(client):
         assert selects, tab
         for rest in selects:
             assert rest.lstrip().startswith('hx-swap="innerHTML"'), tab
+
+
+def test_java_launch_rejects_unknown_stand(client, session, monkeypatch):
+    calls = []
+
+    async def fake_launch(*args):
+        calls.append(args)
+
+    monkeypatch.setattr("app.routers.jobs.launch_in_jenkins", fake_launch)
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
+
+    resp = client.post(
+        "/java/launch",
+        data={"team_id": team["id"], "stand_id": 999, "regression_type": "regression", "part": "back"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["HX-Retarget"] == "#job-log-body"
+    assert "не найден" in resp.text
+    assert calls == []
+    assert session.exec(select(Job)).all() == []
+
+
+def test_java_launch_rejects_test_name_of_another_team(client, session):
+    team = client.post("/api/references", json={"category": "team", "value": "QA"}).json()
+    other = client.post("/api/references", json={"category": "team", "value": "Other"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "s"}).json()
+    test = client.post(
+        "/api/references", json={"category": "test_name", "value": "t", "parent_id": other["id"]}
+    ).json()
+
+    resp = client.post(
+        "/java/launch",
+        data={
+            "team_id": team["id"],
+            "stand_id": stand["id"],
+            "regression_type": "regression",
+            "part": "back",
+            "test_name_id": test["id"],
+        },
+    )
+
+    assert "не найден" in resp.text
+    assert session.exec(select(Job)).all() == []

@@ -8,7 +8,7 @@ from app.config import JENKINS_JOB_NAMES
 from app.db import get_session
 from app.execution.jenkins_launch import restart_java
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem, active_references
+from app.models.reference import ReferenceItem, active_references, launch_reference_error
 from app.templating import templates
 
 router = APIRouter(tags=["launch-java"])
@@ -30,11 +30,12 @@ async def java_launch(
     test_name_id: int | None = Form(None),
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
-    test_command = None
-    if test_name_id is not None:
-        test_item = session.get(ReferenceItem, test_name_id)
-        if test_item is not None:
-            test_command = test_item.command
+    from app.routers.jobs import launch_refused_response
+
+    error = launch_reference_error(session, team_id, stand_id, test_name_id)
+    if error:
+        return launch_refused_response(request, error)
+    test_command = session.get(ReferenceItem, test_name_id).command if test_name_id is not None else None
 
     params = {
         "team_id": team_id,

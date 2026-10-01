@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -16,6 +17,13 @@ class FieldSpec:
     type: Literal["text", "number", "select", "checkbox", "path"]
     required: bool
     options: list[str] | None = None
+
+
+def _is_number(value: Any) -> bool:
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 def build_command(
@@ -45,6 +53,8 @@ def build_command(
             if field.required:
                 raise ValueError(f"Не заполнено обязательное поле {field.flag_name}")
             continue
+        if field.type == "number" and not _is_number(value):
+            raise ValueError(f"Поле {field.flag_name} должно быть числом")
         command.append(f"{field.flag_name}={value}")
 
     for flag in flags:

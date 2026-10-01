@@ -1,6 +1,8 @@
 import pytest
 from sqlmodel import select
 
+from app.models.jobs import Job
+
 
 def test_launch_agent_test_creates_running_job_and_streams_log(client, session):
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
@@ -485,3 +487,32 @@ def test_create_agent_requires_existing_team(client, team_category):
 
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Команда не найдена"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"path": ""},
+        {"path": "   "},
+        {"flags": [{"name": " ", "kind": "bool"}]},
+        {"fields": [{"label": "l", "flag_name": "", "type": "text", "required": False}]},
+    ],
+)
+def test_agent_test_rejects_blank_path_or_flag_names(client, change):
+    _, agent = _team_agent(client)
+    payload = {"path": "run.sh", "flags": [], "fields": [], **change}
+
+    assert client.post(f"/api/agents/{agent['id']}/tests", json=payload).status_code == 422
+    test = _agent_test(client, agent["id"])
+    assert client.put(f"/api/agent-tests/{test['id']}", json=payload).status_code == 422
+
+
+def test_launch_rejects_non_numeric_number_field(client, session):
+    _, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"])
+
+    resp = client.post(f"/api/agent-tests/{test['id']}/launch", json={"values": {"--users": "abc"}})
+
+    assert resp.status_code == 422
+    assert "--users" in resp.json()["detail"]
+    assert session.exec(select(Job)).all() == []

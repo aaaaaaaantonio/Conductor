@@ -35,6 +35,23 @@ def job_list_fragment(request: Request, session: Session = Depends(get_session))
     return templates.TemplateResponse(request, "fragments/job_list.html", {"jobs": jobs})
 
 
+def launch_refused_response(request: Request, message: str, auth_link: bool = False) -> HTMLResponse:
+    """A launch refused before any job was created, shown in the log panel
+    like a Jenkins reply."""
+    return templates.TemplateResponse(
+        request,
+        "fragments/jenkins_launched.html",
+        {
+            "job": None,
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "message": message,
+            "failed": True,
+            "auth_link": auth_link,
+        },
+        headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
+    )
+
+
 async def jenkins_launch_response(
     request: Request, session: Session, job: Job, job_name: str, params: dict
 ) -> HTMLResponse:

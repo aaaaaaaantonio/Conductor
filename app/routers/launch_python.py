@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
@@ -14,7 +13,7 @@ from app.execution.command_builder import FieldSpec, build_command
 from app.execution.jenkins_launch import restart_python
 from app.execution.runner import start_local_job_with_own_session
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem, active_references
+from app.models.reference import ReferenceItem, active_references, launch_reference_error
 from app.templating import templates
 
 router = APIRouter(tags=["launch-python"])
@@ -46,29 +45,19 @@ async def python_launch(
     dataset_id: int | None = Form(None),
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
+    from app.routers.jobs import launch_refused_response
+
+    error = launch_reference_error(session, team_id, stand_id, test_name_id, dataset_id)
+    if error:
+        return launch_refused_response(request, error)
     vm_env = None
     if execution_mode == "vm":
         creds = get_credentials(request)
         vm_env = creds.vm_env() if creds else None
         if vm_env is None:
-            return templates.TemplateResponse(
-                request,
-                "fragments/jenkins_launched.html",
-                {
-                    "job": None,
-                    "time": datetime.now().strftime("%H:%M:%S"),
-                    "message": VM_TOKENS_MISSING,
-                    "failed": True,
-                    "auth_link": True,
-                },
-                headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
-            )
+            return launch_refused_response(request, VM_TOKENS_MISSING, auth_link=True)
 
-    test_command = None
-    if test_name_id is not None:
-        test_item = session.get(ReferenceItem, test_name_id)
-        if test_item is not None:
-            test_command = test_item.command
+    test_command = session.get(ReferenceItem, test_name_id).command if test_name_id is not None else None
 
     params = {
         "team_id": team_id,
