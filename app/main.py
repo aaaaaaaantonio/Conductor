@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -29,8 +30,29 @@ def recover_stale_jobs(session: Session) -> None:
     session.commit()
 
 
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    init_db()
+    # Import app.db.engine here, not at module top: tests monkeypatch
+    # app.db.engine to an in-memory database (see tests/conftest.py),
+    # and a top-level `from app.db import engine` would bind this
+    # module's name to the original engine before that monkeypatch runs.
+    from app.db import engine
+
+    with Session(engine) as session:
+        recover_stale_jobs(session)
+    run_purge()
+    purge_task = asyncio.create_task(purge_loop())
+    try:
+        yield
+    finally:
+        purge_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await purge_task
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Test Runner Bot")
+    app = FastAPI(title="Test Runner Bot", lifespan=lifespan)
     app.middleware("http")(credentials_middleware)
     app.include_router(references_router)
     app.include_router(references_page_router)
@@ -47,27 +69,6 @@ def create_app() -> FastAPI:
     app.mount(
         "/static", StaticFiles(directory=Path(__file__).parent / "static", check_dir=False), name="static"
     )
-
-    @app.on_event("startup")
-    async def on_startup() -> None:
-        init_db()
-        # Import app.db.engine here, not at module top: tests monkeypatch
-        # app.db.engine to an in-memory database (see tests/conftest.py),
-        # and a top-level `from app.db import engine` would bind this
-        # module's name to the original engine before that monkeypatch runs.
-        from app.db import engine
-
-        with Session(engine) as session:
-            recover_stale_jobs(session)
-        run_purge()
-        app.state.purge_task = asyncio.create_task(purge_loop())
-
-    @app.on_event("shutdown")
-    async def on_shutdown() -> None:
-        task = app.state.purge_task
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
 
     @app.get("/health")
     def health() -> dict[str, str]:
