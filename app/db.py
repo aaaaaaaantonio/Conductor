@@ -1,5 +1,6 @@
 from collections.abc import Generator
 
+from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import DATABASE_URL
@@ -11,7 +12,20 @@ def engine_connect_args(url: str) -> dict:
     return {"check_same_thread": False} if url.startswith("sqlite") else {}
 
 
+def enable_sqlite_foreign_keys(engine: Engine) -> None:
+    # SQLite ignores FOREIGN KEY constraints unless each connection opts in.
+    if engine.dialect.name != "sqlite":
+        return
+
+    @event.listens_for(engine, "connect")
+    def _on_connect(dbapi_connection, _record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 engine = create_engine(DATABASE_URL, connect_args=engine_connect_args(DATABASE_URL))
+enable_sqlite_foreign_keys(engine)
 
 
 def init_db() -> None:

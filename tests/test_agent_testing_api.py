@@ -1,3 +1,4 @@
+import pytest
 from sqlmodel import select
 
 
@@ -457,3 +458,30 @@ def test_launch_agent_test_passes_tokens_in_env(client, monkeypatch):
 
     assert resp.status_code == 202
     assert envs == [{"ALLURE_TOKEN": "ci-allure", "ZEPHYR_TOKEN": "ci-zephyr"}]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"flags": [{"name": "--x", "kind": "weird"}]},
+        {"fields": [{"label": "l", "flag_name": "--y", "type": "zzz", "required": False}]},
+    ],
+)
+def test_agent_test_rejects_unknown_flag_kind_or_field_type(client, change):
+    team = client.post("/api/references", json={"category": "team", "value": "QA"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "a"}).json()
+    payload = {"path": "run.sh", "flags": [], "fields": [], **change}
+
+    assert client.post(f"/api/agents/{agent['id']}/tests", json=payload).status_code == 422
+
+
+@pytest.mark.parametrize("team_category", [None, "stand"])
+def test_create_agent_requires_existing_team(client, team_category):
+    team_id = 999
+    if team_category:
+        team_id = client.post("/api/references", json={"category": team_category, "value": "s"}).json()["id"]
+
+    resp = client.post("/api/agents", json={"team_id": team_id, "name": "ghost"})
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Команда не найдена"

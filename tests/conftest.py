@@ -32,6 +32,7 @@ def session_fixture(monkeypatch):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
+    db.enable_sqlite_foreign_keys(engine)
     SQLModel.metadata.create_all(engine)
     # From Task 6 onward, background tasks open their own `Session(app.db.engine)`
     # instead of reusing the request-scoped, DI-overridden session (a

@@ -1,5 +1,5 @@
 import json
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
@@ -34,14 +34,14 @@ class AgentRenameRequest(BaseModel):
 
 class FlagPayload(BaseModel):
     name: str
-    kind: str
+    kind: Literal["bool", "value"]
     default: str | None = None
 
 
 class FieldPayload(BaseModel):
     label: str
     flag_name: str
-    type: str
+    type: Literal["text", "number", "select", "checkbox", "path"]
     required: bool
     options: list[str] | None = None
 
@@ -54,6 +54,9 @@ class AgentTestPayload(BaseModel):
 
 @router.post("/api/agents", response_model=Agent, status_code=201)
 def create_agent(payload: AgentCreateRequest, session: Session = Depends(get_session)) -> Agent:
+    team = session.get(ReferenceItem, payload.team_id)
+    if team is None or team.category != "team":
+        raise HTTPException(status_code=404, detail="Команда не найдена")
     agent = Agent(team_id=payload.team_id, name=payload.name)
     session.add(agent)
     session.commit()
@@ -84,6 +87,9 @@ def delete_agent(agent_id: int, session: Session = Depends(get_session)) -> Resp
     # so a hard delete leaves running jobs and history intact.
     for agent_test in session.exec(select(AgentTest).where(AgentTest.agent_id == agent_id)):
         session.delete(agent_test)
+    # No ORM relationship orders these deletes, so flush the tests first or
+    # the agent row may go before them and break the foreign key.
+    session.flush()
     session.delete(agent)
     session.commit()
     return Response(status_code=204)

@@ -1,9 +1,9 @@
 from collections import defaultdict
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -27,6 +27,39 @@ _ORPHAN_TEAM = ReferenceItem(category="team", value="Без команды")
 _ORPHAN_TEST_NAME = ReferenceItem(category="test_name", value="Без теста")
 
 
+Category = Literal["team", "stand", "test_name", "dataset"]
+NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+# Which category an item's parent must be; None means a top-level item.
+PARENT_CATEGORY: dict[str, str | None] = {
+    "team": None,
+    "stand": None,
+    "test_name": "team",
+    "dataset": "test_name",
+}
+
+
+def _check_parent(session: Session, category: str, parent_id: int | None, item_id: int | None = None) -> None:
+    """Reject a parent of the wrong category. A soft-deleted parent is fine:
+    orphaned items must stay editable (see references_page)."""
+    expected = PARENT_CATEGORY[category]
+    if expected is None:
+        if parent_id is not None:
+            raise HTTPException(status_code=422, detail="У этой категории не бывает родителя")
+        return
+    if parent_id is None or parent_id == item_id:
+        raise HTTPException(status_code=422, detail="Не указан родитель")
+    parent = session.get(ReferenceItem, parent_id)
+    if parent is None or parent.category != expected:
+        raise HTTPException(status_code=422, detail="Родитель не найден или из другой категории")
+
+
+class ReferenceItemCreateRequest(BaseModel):
+    category: Category
+    value: NonBlank
+    parent_id: int | None = None
+    command: str | None = None
+
+
 class TeamStandLinkRequest(BaseModel):
     team_id: int
     stand_id: int
@@ -43,8 +76,10 @@ def list_reference_items(
 
 @router.post("", response_model=ReferenceItem, status_code=201)
 def create_reference_item(
-    item: ReferenceItem, session: Session = Depends(get_session)
+    payload: ReferenceItemCreateRequest, session: Session = Depends(get_session)
 ) -> ReferenceItem:
+    _check_parent(session, payload.category, payload.parent_id)
+    item = ReferenceItem(**payload.model_dump())
     existing = session.exec(
         select(ReferenceItem).where(
             ReferenceItem.category == item.category,
@@ -55,7 +90,6 @@ def create_reference_item(
     ).first()
     if existing is not None:
         raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
-    item.id = None
     item.sort_order = next_sort_order(session, item.category, item.parent_id)
     session.add(item)
     session.commit()
@@ -64,7 +98,7 @@ def create_reference_item(
 
 
 class ReferenceItemUpdateRequest(BaseModel):
-    value: str
+    value: NonBlank
     parent_id: int | None = None
     command: str | None = None
 
@@ -76,6 +110,7 @@ def update_reference_item(
     item = session.get(ReferenceItem, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Запись не найдена")
+    _check_parent(session, item.category, payload.parent_id, item_id)
     duplicate = session.exec(
         select(ReferenceItem).where(
             ReferenceItem.category == item.category,
@@ -141,6 +176,10 @@ def soft_delete_reference_item(
 def link_team_stand(
     payload: TeamStandLinkRequest, session: Session = Depends(get_session)
 ) -> Response:
+    team = session.get(ReferenceItem, payload.team_id)
+    stand = session.get(ReferenceItem, payload.stand_id)
+    if team is None or team.category != "team" or stand is None or stand.category != "stand":
+        raise HTTPException(status_code=404, detail="Команда или стенд не найдены")
     # Linking an already-linked pair is a no-op, not a primary-key clash.
     if session.get(TeamStandLink, (payload.team_id, payload.stand_id)) is None:
         session.add(TeamStandLink(team_id=payload.team_id, stand_id=payload.stand_id))

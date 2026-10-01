@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
@@ -291,3 +294,82 @@ def test_references_page_renders_move_buttons_with_edges_disabled(client):
     assert f'class="ref-move" data-move-url="/api/references/{a["id"]}/move" data-direction="up" disabled' in html
     assert f'class="ref-move" data-move-url="/api/references/{b["id"]}/move" data-direction="down" disabled' in html
     assert f'class="ref-move" data-move-url="/api/references/{a["id"]}/move" data-direction="down" title=' in html
+
+
+# ---------- input validation ----------
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"category": "bogus", "value": "z"},
+        {"category": "team", "value": ""},
+        {"category": "team", "value": "   "},
+    ],
+)
+def test_create_rejects_bad_category_or_blank_value(client, payload):
+    assert client.post("/api/references", json=payload).status_code == 422
+
+
+def test_create_strips_value(client):
+    assert _create(client, "team", "  QA  ")["value"] == "QA"
+
+
+def test_update_rejects_blank_value(client):
+    team = _create(client, "team", "QA")
+    resp = client.put(f"/api/references/{team['id']}", json={"value": " ", "parent_id": None})
+    assert resp.status_code == 422
+
+
+def test_item_cannot_be_its_own_parent(client):
+    test_name = _create(client, "test_name", "t", _create(client, "team", "QA")["id"])
+    resp = client.put(
+        f"/api/references/{test_name['id']}", json={"value": "t", "parent_id": test_name["id"]}
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("category", "parent_category"),
+    [
+        ("test_name", "stand"),
+        ("test_name", None),
+        ("dataset", "team"),
+        ("team", "team"),
+        ("stand", "team"),
+    ],
+)
+def test_parent_must_match_category(client, category, parent_category):
+    parent_id = _create(client, parent_category, "p")["id"] if parent_category else None
+    resp = client.post("/api/references", json={"category": category, "value": "x", "parent_id": parent_id})
+    assert resp.status_code == 422
+
+
+def test_parent_must_exist(client):
+    resp = client.post("/api/references", json={"category": "test_name", "value": "x", "parent_id": 999})
+    assert resp.status_code == 422
+
+
+def test_soft_deleted_parent_still_accepted_for_orphans(client):
+    team = _create(client, "team", "QA")
+    test_name = _create(client, "test_name", "t", team["id"])
+    client.delete(f"/api/references/{team['id']}")
+
+    resp = client.put(
+        f"/api/references/{test_name['id']}", json={"value": "t2", "parent_id": team["id"]}
+    )
+
+    assert resp.status_code == 200
+
+
+def test_link_requires_existing_team_and_stand(client):
+    team = _create(client, "team", "QA")
+    stand = _create(client, "stand", "s")
+    for link in ({"team_id": 999, "stand_id": stand["id"]}, {"team_id": team["id"], "stand_id": team["id"]}):
+        assert client.post("/api/references/team-stand-links", json=link).status_code == 404
+
+
+def test_sqlite_enforces_foreign_keys(session):
+    from sqlalchemy import text
+
+    assert session.exec(text("PRAGMA foreign_keys")).one()[0] == 1
