@@ -1,9 +1,13 @@
+{% if test %}
+<div class="modal-test-path">Тест — {{ agent.name }}</div>
+{% else %}
 <div class="modal-test-path">Новый тест — {{ agent.name }}</div>
+{% endif %}
 
 <form id="new-test-form">
   <div class="field">
     <label for="new-test-path">Путь теста</label>
-    <input id="new-test-path" name="path" type="text" required>
+    <input id="new-test-path" name="path" type="text" required{% if test %} value="{{ test.path }}"{% endif %}>
   </div>
 
   <div class="section-label">Параметры</div>
@@ -16,14 +20,14 @@
 
   <div class="modal-foot">
     <button type="button" class="btn-secondary modal-cancel">Отмена</button>
-    <button type="submit" class="btn-primary" id="new-test-submit" style="width:auto">Создать</button>
+    <button type="submit" class="btn-primary" id="new-test-submit" style="width:auto">{{ "Сохранить" if test else "Создать" }}</button>
   </div>
 </form>
 <script>
 (function () {
   var container = document.getElementById("new-test-fields");
 
-  function addRow() {
+  function addRow(data) {
     var row = document.createElement("div");
     row.className = "field-row";
     row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:8px";
@@ -38,21 +42,28 @@
       '<label style="display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:.8rem">' +
         '<input type="checkbox" class="f-required">обяз.</label>' +
       '<button type="button" class="btn-secondary remove-row" style="width:auto">✕</button>';
+    if (data) {
+      row.querySelector(".f-label").value = data.label || "";
+      row.querySelector(".f-flag").value = data.flag_name || "";
+      row.querySelector(".f-type").value = data.type || "text";
+      row.querySelector(".f-required").checked = !!data.required;
+      // Not editable here, but kept so saving doesn't drop it.
+      if (data.options) row.dataset.options = JSON.stringify(data.options);
+    }
     container.appendChild(row);
   }
 
-  document.getElementById("new-test-add-row").addEventListener("click", addRow);
+  document.getElementById("new-test-add-row").addEventListener("click", function () { addRow(); });
   container.addEventListener("click", function (e) {
     var btn = e.target.closest(".remove-row");
     if (btn) btn.closest(".field-row").remove();
   });
-  addRow();
 
   // Fixed flags are always added to the command. A value flag named like a
   // parameter above only fills that parameter when it's left empty.
   var flagsContainer = document.getElementById("new-test-flags");
 
-  function addFlagRow() {
+  function addFlagRow(data) {
     var row = document.createElement("div");
     row.className = "flag-row";
     row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:8px";
@@ -64,10 +75,17 @@
       '</select>' +
       '<input type="text" placeholder="значение" class="fl-default" style="flex:2" disabled>' +
       '<button type="button" class="btn-secondary remove-flag" style="width:auto">✕</button>';
+    if (data) {
+      row.querySelector(".fl-name").value = data.name || "";
+      row.querySelector(".fl-kind").value = data.kind === "value" ? "value" : "bool";
+      var defaultInput = row.querySelector(".fl-default");
+      defaultInput.disabled = data.kind !== "value";
+      defaultInput.value = data.kind === "value" && data.default ? data.default : "";
+    }
     flagsContainer.appendChild(row);
   }
 
-  document.getElementById("new-test-add-flag").addEventListener("click", addFlagRow);
+  document.getElementById("new-test-add-flag").addEventListener("click", function () { addFlagRow(); });
   flagsContainer.addEventListener("click", function (e) {
     var btn = e.target.closest(".remove-flag");
     if (btn) btn.closest(".flag-row").remove();
@@ -78,6 +96,15 @@
     input.disabled = e.target.value === "bool";
     if (input.disabled) input.value = "";
   });
+
+  {% if test %}
+  {{ test.fields | tojson }}.forEach(addRow);
+  {{ test.flags | tojson }}.forEach(addFlagRow);
+  var url = "/api/agent-tests/{{ test.id }}", method = "PUT", failText = "Не удалось сохранить тест";
+  {% else %}
+  addRow();
+  var url = "/api/agents/{{ agent.id }}/tests", method = "POST", failText = "Не удалось создать тест";
+  {% endif %}
 
   var form = document.getElementById("new-test-form");
   var submitBtn = document.getElementById("new-test-submit");
@@ -94,6 +121,7 @@
         flag_name: flag,
         type: row.querySelector(".f-type").value,
         required: row.querySelector(".f-required").checked,
+        options: row.dataset.options ? JSON.parse(row.dataset.options) : null,
       });
     });
     var flags = [];
@@ -105,8 +133,8 @@
       flags.push({ name: name, kind: kind, default: kind === "value" && value ? value : null });
     });
     submitBtn.disabled = true;
-    fetch("/api/agents/{{ agent.id }}/tests", {
-      method: "POST",
+    fetch(url, {
+      method: method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: form.elements["path"].value, flags: flags, fields: fields }),
     }).then(function (resp) {
@@ -115,12 +143,12 @@
         return;
       }
       submitBtn.disabled = false;
-      formError.fromResponse(resp, "Не удалось создать тест").then(function (message) {
+      formError.fromResponse(resp, failText).then(function (message) {
         formError.show(form, message);
       });
     }).catch(function (err) {
       submitBtn.disabled = false;
-      formError.show(form, "Не удалось создать тест: " + err);
+      formError.show(form, failText + ": " + err);
     });
   });
 })();

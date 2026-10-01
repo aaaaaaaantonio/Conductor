@@ -276,3 +276,123 @@ def test_inline_form_error_helper_loads_before_page_scripts(client):
     js = client.get("/static/form-error.js").text
     assert "window.formError" in js
     assert 'box.setAttribute("role", "alert")' in js
+
+
+def _team_agent(client, team_value="QA", agent_name="agent-01"):
+    team = client.post("/api/references", json={"category": "team", "value": team_value}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": agent_name}).json()
+    return team, agent
+
+
+def _agent_test(client, agent_id, path="tests/a.py"):
+    payload = {
+        "path": path,
+        "flags": [{"name": "--env", "kind": "value", "default": "stage"}],
+        "fields": [
+            {"label": "Users", "flag_name": "--users", "type": "number", "required": True, "options": None}
+        ],
+    }
+    resp = client.post(f"/api/agents/{agent_id}/tests", json=payload)
+    assert resp.status_code == 201
+    return resp.json()
+
+
+def test_rename_agent(client):
+    team, agent = _team_agent(client)
+    resp = client.put(f"/api/agents/{agent['id']}", json={"name": "  agent-02  "})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "agent-02"
+    assert [a["name"] for a in client.get("/api/agents", params={"team_id": team["id"]}).json()] == ["agent-02"]
+
+
+def test_agent_name_cannot_be_blank(client):
+    team, agent = _team_agent(client)
+    assert client.put(f"/api/agents/{agent['id']}", json={"name": "   "}).status_code == 422
+    assert client.post("/api/agents", json={"team_id": team["id"], "name": ""}).status_code == 422
+
+
+def test_rename_missing_agent_returns_404(client):
+    resp = client.put("/api/agents/999999", json={"name": "x"})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Агент не найден"
+
+
+def test_delete_agent_removes_its_tests_only(client):
+    team, agent = _team_agent(client)
+    other = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-other"}).json()
+    doomed = _agent_test(client, agent["id"])
+    kept = _agent_test(client, other["id"])
+
+    resp = client.delete(f"/api/agents/{agent['id']}")
+    assert resp.status_code == 204
+    assert [a["id"] for a in client.get("/api/agents", params={"team_id": team["id"]}).json()] == [other["id"]]
+    assert client.get(f"/api/agent-tests/{doomed['id']}").status_code == 404
+    assert client.get(f"/api/agent-tests/{kept['id']}").status_code == 200
+
+
+def test_delete_missing_agent_returns_404(client):
+    resp = client.delete("/api/agents/999999")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Агент не найден"
+
+
+def test_delete_agent_test(client):
+    _, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"])
+    assert client.delete(f"/api/agent-tests/{test['id']}").status_code == 204
+    assert client.get(f"/api/agent-tests/{test['id']}").status_code == 404
+
+
+def test_delete_missing_agent_test_returns_404(client):
+    resp = client.delete("/api/agent-tests/999999")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Тест не найден"
+
+
+def test_agent_testing_page_has_agent_edit_and_delete_controls(client):
+    _, agent = _team_agent(client)
+    _agent_test(client, agent["id"])
+    html = client.get("/agent-testing").text
+    assert f'hx-get="/agent-testing/agents/{agent["id"]}/fragments/edit"' in html
+    assert f'data-delete-url="/api/agents/{agent["id"]}"' in html
+    assert 'data-test-count="1"' in html
+
+
+def test_agent_test_card_has_edit_and_delete_buttons(client):
+    _, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"])
+    html = client.get(f"/agent-testing/tests/{test['id']}/fragments/card").text
+    assert f'hx-get="/agent-testing/tests/{test["id"]}/fragments/edit"' in html
+    assert f'data-delete-url="/api/agent-tests/{test["id"]}"' in html
+
+
+def test_edit_agent_fragment_is_prefilled_and_saves_via_put(client):
+    _, agent = _team_agent(client, agent_name="agent-xyz")
+    resp = client.get(f"/agent-testing/agents/{agent['id']}/fragments/edit")
+    assert resp.status_code == 200
+    assert 'value="agent-xyz"' in resp.text
+    assert "PUT" in resp.text
+    assert client.get("/agent-testing/agents/999999/fragments/edit").status_code == 404
+
+
+def test_edit_agent_test_fragment_is_prefilled_and_saves_via_put(client):
+    _, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"], path="tests/checkout.py")
+    resp = client.get(f"/agent-testing/tests/{test['id']}/fragments/edit")
+    assert resp.status_code == 200
+    html = resp.text
+    assert 'value="tests/checkout.py"' in html
+    assert '"flag_name": "--users"' in html
+    assert '"name": "--env"' in html
+    assert f'"/api/agent-tests/{test["id"]}"' in html
+    assert "PUT" in html
+    assert client.get("/agent-testing/tests/999999/fragments/edit").status_code == 404
+
+
+def test_card_delete_button_is_not_caught_by_agent_delete_handler(client):
+    # agent_testing.html deletes an agent on any click inside .tree-agent-del;
+    # the card's own delete button must not carry that class.
+    _, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"])
+    html = client.get(f"/agent-testing/tests/{test['id']}/fragments/card").text
+    assert "tree-agent-del" not in html

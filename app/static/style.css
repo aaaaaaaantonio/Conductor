@@ -239,7 +239,15 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .team-body-inner{overflow:hidden; min-height:0; padding-bottom:8px}
 @media (prefers-reduced-motion: reduce){ .team-body{transition:none} }
 
-.tree-agent{font-size:.82rem; color:var(--ink-soft); margin:8px 0 2px; padding-left:2px; font-weight:500}
+.tree-agent{display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:.82rem; color:var(--ink-soft); margin:8px 0 2px; padding-left:2px; font-weight:500}
+.tree-agent-name{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tree-agent-actions{display:flex; gap:2px; flex-shrink:0}
+.tree-agent-btn{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.8rem; padding:2px 6px; border-radius:4px}
+.tree-agent-btn:hover{background:var(--page); color:var(--ink)}
+.tree-agent-del:hover, .card-delete:hover{background:var(--status-fail-bg); color:var(--status-fail)}
+.card-head{display:flex; align-items:flex-start; justify-content:space-between; gap:8px}
+.card-head .modal-test-path{min-width:0; overflow-wrap:anywhere}
+.card-actions{display:flex; gap:2px; flex-shrink:0}
 .tree-test{
   display:block; padding:6px 10px 6px 18px; border-radius:6px; color:var(--ink-soft); text-decoration:none; font-size:.82rem;
   font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;

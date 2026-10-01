@@ -1,4 +1,10 @@
-<div class="modal-test-path">{{ test.path }}</div>
+<div class="card-head">
+  <div class="modal-test-path">{{ test.path }}</div>
+  <span class="card-actions">
+    <button type="button" class="tree-agent-btn modal-trigger card-edit" hx-get="/agent-testing/tests/{{ test.id }}/fragments/edit" hx-target="#modal-body" hx-swap="innerHTML" title="Изменить тест">✎</button>
+    <button type="button" class="tree-agent-btn card-delete" id="delete-test-{{ test.id }}" data-delete-url="/api/agent-tests/{{ test.id }}" title="Удалить тест">✕</button>
+  </span>
+</div>
 
 <form id="launch-form-{{ test.id }}" data-launch-url="/api/agent-tests/{{ test.id }}/launch">
   {% set checkbox_fields = test.fields | selectattr('type', 'equalto', 'checkbox') | list %}
@@ -74,6 +80,24 @@
   var form = document.getElementById("launch-form-{{ test.id }}");
   var submitBtn = document.getElementById("launch-submit-{{ test.id }}");
   formError.bind(form);
+
+  var deleteBtn = document.getElementById("delete-test-{{ test.id }}");
+  deleteBtn.addEventListener("click", function () {
+    if (!confirm("Удалить тест «" + {{ test.path | tojson }} + "»?")) return;
+    formError.clear(form);
+    deleteBtn.disabled = true;
+    fetch(deleteBtn.dataset.deleteUrl, { method: "DELETE" }).then(function (resp) {
+      if (resp.ok) { location.reload(); return; }
+      deleteBtn.disabled = false;
+      formError.fromResponse(resp, "Не удалось удалить тест").then(function (message) {
+        formError.show(form, message);
+      });
+    }).catch(function (err) {
+      deleteBtn.disabled = false;
+      formError.show(form, "Не удалось удалить тест: " + err);
+    });
+  });
+
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     formError.clear(form);

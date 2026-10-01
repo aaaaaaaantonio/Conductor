@@ -11,8 +11,15 @@
         <div class="team-body">
           <div class="team-body-inner">
             {% for agent in agents_by_team.get(team.id, []) %}
-              <div class="tree-agent">{{ agent.name }}</div>
-              {% for test in tests_by_agent.get(agent.id, []) %}
+              {% set agent_tests = tests_by_agent.get(agent.id, []) %}
+              <div class="tree-agent">
+                <span class="tree-agent-name">{{ agent.name }}</span>
+                <span class="tree-agent-actions">
+                  <button type="button" class="tree-agent-btn modal-trigger" hx-get="/agent-testing/agents/{{ agent.id }}/fragments/edit" hx-target="#modal-body" hx-swap="innerHTML" title="Переименовать">✎</button>
+                  <button type="button" class="tree-agent-btn tree-agent-del" data-delete-url="/api/agents/{{ agent.id }}" data-agent-name="{{ agent.name }}" data-test-count="{{ agent_tests | length }}" title="Удалить">✕</button>
+                </span>
+              </div>
+              {% for test in agent_tests %}
                 <a class="tree-test modal-trigger" href="#" hx-get="/agent-testing/tests/{{ test.id }}/fragments/card" hx-target="#modal-body" hx-swap="innerHTML">{{ test.path }}</a>
               {% endfor %}
               <a class="tree-test modal-trigger tree-add" href="#" hx-get="/agent-testing/agents/{{ agent.id }}/fragments/new-test" hx-target="#modal-body" hx-swap="innerHTML">+ Добавить тест</a>
@@ -52,4 +59,29 @@
     </div>
   </div>
 </div>
+<script>
+(function () {
+  // Delegated on document.body, which survives hx-boost navigations;
+  // bindPersistent (base.html) replaces the handler on each render.
+  window.bindPersistent(document.body, "click", "__agentDeleteHandler", function (e) {
+    var btn = e.target.closest(".tree-agent-del");
+    if (!btn) return;
+    e.preventDefault();
+    var count = Number(btn.dataset.testCount);
+    var question = "Удалить агента «" + btn.dataset.agentName + "»" +
+      (count ? " и его тесты (" + count + ")?" : "?");
+    if (!confirm(question)) return;
+    var row = btn.closest(".tree-agent");
+    formError.clearAll();
+    fetch(btn.dataset.deleteUrl, { method: "DELETE" }).then(function (resp) {
+      if (resp.ok) { location.reload(); return; }
+      formError.fromResponse(resp, "Не удалось удалить агента").then(function (message) {
+        formError.showAfter(row, message);
+      });
+    }).catch(function (err) {
+      formError.showAfter(row, "Не удалось удалить агента: " + err);
+    });
+  });
+})();
+</script>
 {% endblock %}

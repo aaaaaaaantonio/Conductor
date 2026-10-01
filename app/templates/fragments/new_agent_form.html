@@ -1,41 +1,52 @@
+{% if agent %}
+<div class="modal-test-path">Агент — {{ agent.name }}</div>
+{% else %}
 <div class="modal-test-path">Новый агент — {{ team.value }}</div>
+{% endif %}
 
 <form id="new-agent-form">
   <div class="field">
     <label for="new-agent-name">Имя агента</label>
-    <input id="new-agent-name" name="name" type="text" required>
+    <input id="new-agent-name" name="name" type="text" required{% if agent %} value="{{ agent.name }}"{% endif %}>
   </div>
 
   <div class="modal-foot">
     <button type="button" class="btn-secondary modal-cancel">Отмена</button>
-    <button type="submit" class="btn-primary" id="new-agent-submit" style="width:auto">Создать</button>
+    <button type="submit" class="btn-primary" id="new-agent-submit" style="width:auto">{{ "Сохранить" if agent else "Создать" }}</button>
   </div>
 </form>
 <script>
 (function () {
   var form = document.getElementById("new-agent-form");
   var submitBtn = document.getElementById("new-agent-submit");
+  {% if agent %}
+  var url = "/api/agents/{{ agent.id }}", method = "PUT", failText = "Не удалось сохранить агента";
+  function body() { return { name: form.elements["name"].value }; }
+  {% else %}
+  var url = "/api/agents", method = "POST", failText = "Не удалось создать агента";
+  function body() { return { team_id: {{ team.id }}, name: form.elements["name"].value }; }
+  {% endif %}
   formError.bind(form);
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     formError.clear(form);
     submitBtn.disabled = true;
-    fetch("/api/agents", {
-      method: "POST",
+    fetch(url, {
+      method: method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ team_id: {{ team.id }}, name: form.elements["name"].value }),
+      body: JSON.stringify(body()),
     }).then(function (resp) {
       if (resp.ok) {
         location.reload();
         return;
       }
       submitBtn.disabled = false;
-      formError.fromResponse(resp, "Не удалось создать агента").then(function (message) {
+      formError.fromResponse(resp, failText).then(function (message) {
         formError.show(form, message);
       });
     }).catch(function (err) {
       submitBtn.disabled = false;
-      formError.show(form, "Не удалось создать агента: " + err);
+      formError.show(form, failText + ": " + err);
     });
   });
 })();

@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session, select
 
 from app.config import JOB_LOG_DIR
@@ -22,9 +22,16 @@ router = APIRouter(tags=["agent-testing"])
 LOG_DIR = Path(JOB_LOG_DIR)
 
 
+AgentName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
 class AgentCreateRequest(BaseModel):
     team_id: int
-    name: str
+    name: AgentName
+
+
+class AgentRenameRequest(BaseModel):
+    name: AgentName
 
 
 class FlagPayload(BaseModel):
@@ -54,6 +61,34 @@ def create_agent(payload: AgentCreateRequest, session: Session = Depends(get_ses
     session.commit()
     session.refresh(agent)
     return agent
+
+
+@router.put("/api/agents/{agent_id}", response_model=Agent)
+def rename_agent(
+    agent_id: int, payload: AgentRenameRequest, session: Session = Depends(get_session)
+) -> Agent:
+    agent = session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Агент не найден")
+    agent.name = payload.name
+    session.add(agent)
+    session.commit()
+    session.refresh(agent)
+    return agent
+
+
+@router.delete("/api/agents/{agent_id}", status_code=204)
+def delete_agent(agent_id: int, session: Session = Depends(get_session)) -> Response:
+    agent = session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Агент не найден")
+    # Jobs keep their already-built command and don't reference the test,
+    # so a hard delete leaves running jobs and history intact.
+    for agent_test in session.exec(select(AgentTest).where(AgentTest.agent_id == agent_id)):
+        session.delete(agent_test)
+    session.delete(agent)
+    session.commit()
+    return Response(status_code=204)
 
 
 @router.get("/api/agents", response_model=list[Agent])
@@ -122,6 +157,16 @@ def update_agent_test(
     session.commit()
     session.refresh(agent_test)
     return _agent_test_to_dict(agent_test)
+
+
+@router.delete("/api/agent-tests/{test_id}", status_code=204)
+def delete_agent_test(test_id: int, session: Session = Depends(get_session)) -> Response:
+    agent_test = session.get(AgentTest, test_id)
+    if agent_test is None:
+        raise HTTPException(status_code=404, detail="Тест не найден")
+    session.delete(agent_test)
+    session.commit()
+    return Response(status_code=204)
 
 
 class LaunchRequest(BaseModel):
@@ -196,6 +241,18 @@ def new_agent_fragment(
     return templates.TemplateResponse(request, "fragments/new_agent_form.html", {"team": team})
 
 
+@router.get("/agent-testing/agents/{agent_id}/fragments/edit", response_class=HTMLResponse)
+def edit_agent_fragment(
+    request: Request, agent_id: int, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    agent = session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Агент не найден")
+    return templates.TemplateResponse(
+        request, "fragments/new_agent_form.html", {"team": None, "agent": agent}
+    )
+
+
 @router.get("/agent-testing/agents/{agent_id}/fragments/new-test", response_class=HTMLResponse)
 def new_test_fragment(
     request: Request, agent_id: int, session: Session = Depends(get_session)
@@ -204,3 +261,18 @@ def new_test_fragment(
     if agent is None:
         raise HTTPException(status_code=404, detail="Агент не найден")
     return templates.TemplateResponse(request, "fragments/new_test_form.html", {"agent": agent})
+
+
+@router.get("/agent-testing/tests/{test_id}/fragments/edit", response_class=HTMLResponse)
+def edit_test_fragment(
+    request: Request, test_id: int, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    agent_test = session.get(AgentTest, test_id)
+    if agent_test is None:
+        raise HTTPException(status_code=404, detail="Тест не найден")
+    agent = session.get(Agent, agent_test.agent_id)
+    return templates.TemplateResponse(
+        request,
+        "fragments/new_test_form.html",
+        {"agent": agent, "test": _agent_test_to_dict(agent_test)},
+    )
