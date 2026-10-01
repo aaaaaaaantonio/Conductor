@@ -12,7 +12,11 @@ from app.main import create_app
 
 def make_test_credentials() -> Credentials:
     return Credentials(
-        jenkins_user="ci-user", jenkins_token="ci-token", issued_at=int(time.time())
+        jenkins_user="ci-user",
+        jenkins_token="ci-token",
+        allure_token="ci-allure",
+        zephyr_token="ci-zephyr",
+        issued_at=int(time.time()),
     )
 
 

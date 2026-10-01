@@ -1,3 +1,6 @@
+from sqlmodel import select
+
+
 def test_launch_agent_test_creates_running_job_and_streams_log(client, session):
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
     agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
@@ -186,7 +189,7 @@ def test_launch_passes_agent_test_flags_to_command(client, monkeypatch):
 
     launched = []
 
-    async def fake_start(job_id, command, log_dir):
+    async def fake_start(job_id, command, log_dir, env=None):
         launched.append(command)
 
     monkeypatch.setattr(agent_testing, "start_local_job_with_own_session", fake_start)
@@ -413,3 +416,44 @@ def test_modal_fragments_set_their_own_eyebrow(client):
     for url, eyebrow in expected.items():
         html = client.get(url).text
         assert f'<span class="modal-eyebrow" id="modal-eyebrow" hx-swap-oob="true">{eyebrow}</span>' in html, url
+
+
+def _simple_agent_test(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    agent = client.post("/api/agents", json={"team_id": team["id"], "name": "agent-01"}).json()
+    payload = {"path": "run.sh", "flags": [], "fields": []}
+    return client.post(f"/api/agents/{agent['id']}/tests", json=payload).json()
+
+
+def test_launch_agent_test_without_vm_tokens_is_refused(client, session, monkeypatch):
+    import app.routers.agent_testing as agent_testing
+    from app.models.jobs import Job
+
+    launched = []
+    monkeypatch.setattr(agent_testing, "start_local_job_with_own_session", lambda *a, **kw: launched.append(a))
+    test = _simple_agent_test(client)
+    client.cookies.clear()
+
+    resp = client.post(f"/api/agent-tests/{test['id']}/launch", json={"values": {}})
+
+    assert resp.status_code == 403
+    assert "Allure TestOps и Jira Zephyr" in resp.json()["detail"]
+    assert launched == []
+    assert session.exec(select(Job)).all() == []
+
+
+def test_launch_agent_test_passes_tokens_in_env(client, monkeypatch):
+    import app.routers.agent_testing as agent_testing
+
+    envs = []
+
+    async def fake_start(job_id, command, log_dir, env=None):
+        envs.append(env)
+
+    monkeypatch.setattr(agent_testing, "start_local_job_with_own_session", fake_start)
+    test = _simple_agent_test(client)
+
+    resp = client.post(f"/api/agent-tests/{test['id']}/launch", json={"values": {}})
+
+    assert resp.status_code == 202
+    assert envs == [{"ALLURE_TOKEN": "ci-allure", "ZEPHYR_TOKEN": "ci-zephyr"}]

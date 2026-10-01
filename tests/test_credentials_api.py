@@ -50,6 +50,7 @@ def test_credentials_page_renders_form_without_tokens(client):
     assert 'name="jenkins_user"' in resp.text
     assert 'name="jenkins_token" type="password"' in resp.text
     assert 'name="allure_token" type="password"' in resp.text
+    assert 'name="zephyr_token" type="password"' in resp.text
     assert 'name="remember"' in resp.text
     assert "ci-user" in resp.text
     assert "ci-token" not in resp.text
@@ -154,6 +155,63 @@ def test_allure_token_checked_when_allure_configured(client, monkeypatch):
     assert allure_req.url.path == "/api/uaa/oauth/token"
     assert b"token=al-bad" in allure_req.content
     assert COOKIE_NAME not in client.cookies
+
+
+def test_zephyr_token_checked_against_jira_when_configured(client, monkeypatch):
+    client.cookies.clear()
+    monkeypatch.setattr("app.execution.credential_checks.JIRA_BASE_URL", "http://jira")
+    requests = _mock_http(monkeypatch, "app.execution.credential_checks", lambda r: httpx.Response(200))
+
+    resp = client.post(
+        "/credentials",
+        data={"jenkins_user": "bob", "jenkins_token": "t", "zephyr_token": "ze-1"},
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 303
+    jira_req = next(r for r in requests if r.url.host == "jira")
+    assert jira_req.url.path == "/rest/api/2/myself"
+    assert jira_req.headers["Authorization"] == "Bearer ze-1"
+    assert decode(client.cookies[COOKIE_NAME]).creds.zephyr_token == "ze-1"
+
+
+def test_rejected_zephyr_token_is_not_saved(client, monkeypatch):
+    client.cookies.clear()
+    monkeypatch.setattr("app.execution.credential_checks.JIRA_BASE_URL", "http://jira")
+
+    def handler(request):
+        return httpx.Response(401) if request.url.host == "jira" else httpx.Response(200)
+
+    _mock_http(monkeypatch, "app.execution.credential_checks", handler)
+
+    resp = client.post(
+        "/credentials",
+        data={"jenkins_user": "bob", "jenkins_token": "t", "zephyr_token": "ze-bad"},
+    )
+
+    assert resp.status_code == 400
+    assert "Jira отклонила токен" in resp.text
+    assert "ze-bad" not in resp.text
+    assert COOKIE_NAME not in client.cookies
+
+
+def test_zephyr_token_saved_unchecked_without_jira_url(client, monkeypatch):
+    client.cookies.clear()
+    monkeypatch.setattr("app.execution.credential_checks.JIRA_BASE_URL", "")
+    requests = _mock_http(monkeypatch, "app.execution.credential_checks", lambda r: httpx.Response(200))
+
+    client.post(
+        "/credentials",
+        data={"jenkins_user": "bob", "jenkins_token": "t", "zephyr_token": "ze-1"},
+        follow_redirects=False,
+    )
+
+    assert [r.url.path for r in requests] == ["/me/api/json"]
+    assert decode(client.cookies[COOKIE_NAME]).creds.zephyr_token == "ze-1"
+
+
+def test_status_shows_zephyr_token(client):
+    assert "Jira Zephyr" in client.get("/credentials").text
 
 
 def test_forget_clears_cookie(client):

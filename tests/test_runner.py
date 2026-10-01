@@ -203,3 +203,25 @@ def test_cancel_unknown_job_returns_false():
     from app.execution import runner
 
     assert runner.cancel_job(987654) is False
+
+
+@pytest.mark.asyncio
+async def test_start_local_job_adds_env_on_top_of_server_env(tmp_path: Path, session: Session):
+    job = Job(source="python", status="queued", params_json="{}")
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    command = ["python3", "-c", "import os; print(os.environ['ZEPHYR_TOKEN']); print(bool(os.environ.get('PATH')))"]
+    await start_local_job(
+        job_id=job.id,
+        command=command,
+        log_dir=tmp_path,
+        session=session,
+        broadcaster=EventBroadcaster(),
+        env={"ZEPHYR_TOKEN": "ze-1"},
+    )
+
+    session.refresh(job)
+    assert job.status == "success"
+    assert Path(job.log_path).read_text().splitlines() == ["ze-1", "True"]

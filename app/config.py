@@ -16,6 +16,8 @@ JENKINS_JOB_NAMES = {
 PYTHON_TEST_RUNNER_PATH = os.environ.get("PYTHON_TEST_RUNNER_PATH", "./run-python-tests.sh")
 
 ALLURE_BASE_URL = os.environ.get("ALLURE_BASE_URL", "")
+# Jira Server/DC with Zephyr; the Zephyr token is a Jira Personal Access Token.
+JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "")
 
 # Personal Jenkins/Allure tokens live in an encrypted HttpOnly cookie
 # (app/credentials.py). Any string works as the key; changing it signs

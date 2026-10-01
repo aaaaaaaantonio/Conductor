@@ -1,3 +1,4 @@
+import json
 import time
 
 from app import credentials
@@ -82,3 +83,36 @@ def test_max_lifetime_caps_sliding_refresh():
 def test_default_now_is_current_time():
     value = encode(_creds(issued_at=int(time.time())))
     assert decode(value) is not None
+
+
+def test_cookie_saved_before_zephyr_existed_still_decodes():
+    payload = json.dumps(
+        {
+            "jenkins_user": "alice",
+            "jenkins_token": "jt-secret",
+            "allure_token": "at-secret",
+            "remember": False,
+            "issued_at": NOW,
+        }
+    ).encode()
+    value = credentials._fernet().encrypt_at_time(payload, NOW).decode()
+
+    decoded = decode(value, now=NOW + 1)
+
+    assert decoded is not None
+    assert decoded.creds.zephyr_token is None
+
+
+def test_repr_hides_zephyr_token():
+    creds = Credentials(jenkins_user="alice", jenkins_token="jt", zephyr_token="zt-secret")
+    assert "zt-secret" not in repr(creds)
+
+
+def test_vm_env_has_both_tokens():
+    creds = Credentials(jenkins_user="a", jenkins_token="j", allure_token="al", zephyr_token="ze")
+    assert creds.vm_env() == {"ALLURE_TOKEN": "al", "ZEPHYR_TOKEN": "ze"}
+
+
+def test_vm_env_is_none_without_either_token():
+    assert Credentials(jenkins_user="a", jenkins_token="j", allure_token="al").vm_env() is None
+    assert Credentials(jenkins_user="a", jenkins_token="j", zephyr_token="ze").vm_env() is None

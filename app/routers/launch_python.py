@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
@@ -7,6 +8,7 @@ from sqlmodel import Session
 
 from app import config
 from app.config import JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
+from app.credentials import VM_TOKENS_MISSING, get_credentials
 from app.db import get_session
 from app.execution.command_builder import FieldSpec, build_command
 from app.execution.jenkins_launch import restart_python
@@ -44,6 +46,24 @@ async def python_launch(
     dataset_id: int | None = Form(None),
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
+    vm_env = None
+    if execution_mode == "vm":
+        creds = get_credentials(request)
+        vm_env = creds.vm_env() if creds else None
+        if vm_env is None:
+            return templates.TemplateResponse(
+                request,
+                "fragments/jenkins_launched.html",
+                {
+                    "job": None,
+                    "time": datetime.now().strftime("%H:%M:%S"),
+                    "message": VM_TOKENS_MISSING,
+                    "failed": True,
+                    "auth_link": True,
+                },
+                headers={"HX-Retarget": "#job-log-body", "HX-Reswap": "afterbegin"},
+            )
+
     test_command = None
     if test_name_id is not None:
         test_item = session.get(ReferenceItem, test_name_id)
@@ -75,7 +95,9 @@ async def python_launch(
             "--dataset": dataset_id,
         }
         command = build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values)
-        background_tasks.add_task(start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR)
+        background_tasks.add_task(
+            start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR, env=vm_env
+        )
     elif execution_mode == "jenkins":
         jenkins_params = {k: v for k, v in params.items() if v is not None}
 

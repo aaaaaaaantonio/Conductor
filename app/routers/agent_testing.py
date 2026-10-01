@@ -7,6 +7,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session, select
 
 from app import config
+from app.credentials import VM_TOKENS_MISSING, get_credentials
 from app.db import get_session
 from app.execution.command_builder import FieldSpec, FlagSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
@@ -172,6 +173,7 @@ class LaunchRequest(BaseModel):
 
 @router.post("/api/agent-tests/{test_id}/launch", status_code=202)
 async def launch_agent_test(
+    request: Request,
     test_id: int,
     payload: LaunchRequest,
     background_tasks: BackgroundTasks,
@@ -180,6 +182,10 @@ async def launch_agent_test(
     agent_test = session.get(AgentTest, test_id)
     if agent_test is None:
         raise HTTPException(status_code=404, detail="Тест не найден")
+    creds = get_credentials(request)
+    vm_env = creds.vm_env() if creds else None
+    if vm_env is None:
+        raise HTTPException(status_code=403, detail=VM_TOKENS_MISSING)
 
     fields = [FieldSpec(**f) for f in json.loads(agent_test.fields_json)]
     flags = [FlagSpec(**f) for f in json.loads(agent_test.flags_json)]
@@ -193,7 +199,9 @@ async def launch_agent_test(
     session.commit()
     session.refresh(job)
 
-    background_tasks.add_task(start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR)
+    background_tasks.add_task(
+        start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR, env=vm_env
+    )
     return {"job_id": job.id}
 
 

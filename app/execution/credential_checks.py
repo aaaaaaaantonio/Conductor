@@ -1,6 +1,6 @@
 import httpx
 
-from app.config import ALLURE_BASE_URL, JENKINS_BASE_URL
+from app.config import ALLURE_BASE_URL, JENKINS_BASE_URL, JIRA_BASE_URL
 
 
 class CredentialsRejected(Exception):
@@ -37,3 +37,20 @@ async def check_allure(token: str) -> None:
         raise CredentialsRejected("Allure TestOps отклонил токен")
     if response.is_error:
         raise CredentialsRejected(f"Allure TestOps ответил ошибкой {response.status_code}")
+
+
+async def check_zephyr(token: str) -> None:
+    """The Zephyr token is a Jira PAT; skipped when Jira isn't configured."""
+    if not JIRA_BASE_URL:
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{JIRA_BASE_URL}/rest/api/2/myself", headers={"Authorization": f"Bearer {token}"}
+            )
+    except httpx.HTTPError as exc:
+        raise CredentialsRejected(f"Не удалось подключиться к Jira: {exc}") from exc
+    if response.status_code in (401, 403):
+        raise CredentialsRejected("Jira отклонила токен Zephyr")
+    if response.is_error:
+        raise CredentialsRejected(f"Jira ответила ошибкой {response.status_code}")

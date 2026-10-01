@@ -1,10 +1,12 @@
 import asyncio
 import json
+import time
 
 import httpx
 import pytest
 from sqlmodel import select
 
+from app.credentials import COOKIE_NAME, Credentials, encode
 from app.execution.broadcaster import broadcaster
 from app.models.jobs import Job
 from app.routers.jobs import stream_events
@@ -150,6 +152,68 @@ def test_python_launch_vm_mode_creates_job_and_returns_list_fragment(client, ses
     )
     assert resp.status_code == 200
     assert "job-" in resp.text
+
+
+def _python_vm_launch(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
+    return client.post(
+        "/python/launch",
+        data={
+            "team_id": team["id"],
+            "stand_id": stand["id"],
+            "regression_type": "regression",
+            "execution_mode": "vm",
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "creds",
+    [
+        None,
+        Credentials(jenkins_user="u", jenkins_token="t", allure_token="al"),
+        Credentials(jenkins_user="u", jenkins_token="t", zephyr_token="ze"),
+    ],
+)
+def test_python_vm_launch_without_vm_tokens_is_refused(client, session, monkeypatch, creds):
+    import app.routers.launch_python as launch_python
+
+    launched = []
+    monkeypatch.setattr(launch_python, "start_local_job_with_own_session", lambda *a, **kw: launched.append(a))
+    client.cookies.clear()
+    if creds is not None:
+        stamped = Credentials(**{**creds.__dict__, "issued_at": int(time.time())})
+        client.cookies.set(COOKIE_NAME, encode(stamped), domain="testserver.local")
+
+    resp = _python_vm_launch(client)
+
+    assert resp.status_code == 200
+    assert "Allure TestOps и Jira Zephyr" in resp.text
+    assert 'href="/credentials"' in resp.text
+    assert resp.headers["HX-Retarget"] == "#job-log-body"
+    assert launched == []
+    assert session.exec(select(Job)).all() == []
+
+
+def test_python_vm_launch_passes_tokens_in_env_not_params(client, session, monkeypatch):
+    import app.routers.launch_python as launch_python
+
+    calls = []
+
+    async def fake_start(job_id, command, log_dir, env=None):
+        calls.append((command, env))
+
+    monkeypatch.setattr(launch_python, "start_local_job_with_own_session", fake_start)
+
+    resp = _python_vm_launch(client)
+
+    assert resp.status_code == 200
+    command, env = calls[0]
+    assert env == {"ALLURE_TOKEN": "ci-allure", "ZEPHYR_TOKEN": "ci-zephyr"}
+    assert not any("ci-" in part for part in command)
+    job = session.exec(select(Job)).one()
+    assert "ci-allure" not in job.params_json and "ci-zephyr" not in job.params_json
 
 
 def test_python_launch_jenkins_mode_triggers_build(client, session, monkeypatch):

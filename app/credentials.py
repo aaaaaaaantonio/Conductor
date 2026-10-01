@@ -33,6 +33,7 @@ from app.config import (
 )
 
 COOKIE_NAME = "conductor_creds"
+VM_TOKENS_MISSING = "Для запуска на VM нужны токены Allure TestOps и Jira Zephyr — введите их на странице «Доступы»"
 # Tolerated clock skew for a cookie stamped slightly in the future.
 _CLOCK_SKEW = 60
 
@@ -47,9 +48,16 @@ class Credentials:
     allure_token: str | None = field(default=None, repr=False)
     remember: bool = False
     issued_at: int = 0
+    zephyr_token: str | None = field(default=None, repr=False)
 
     def jenkins_auth(self) -> httpx.BasicAuth:
         return httpx.BasicAuth(self.jenkins_user, self.jenkins_token)
+
+    def vm_env(self) -> dict[str, str] | None:
+        """Environment for a VM run, or None if a required token is missing."""
+        if not (self.allure_token and self.zephyr_token):
+            return None
+        return {"ALLURE_TOKEN": self.allure_token, "ZEPHYR_TOKEN": self.zephyr_token}
 
     @property
     def idle_ttl(self) -> int:

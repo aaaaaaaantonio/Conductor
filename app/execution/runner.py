@@ -45,7 +45,9 @@ async def start_local_job(
     log_dir: Path,
     session: Session,
     broadcaster: EventBroadcaster = default_broadcaster,
+    env: dict[str, str] | None = None,
 ) -> None:
+    """`env` is added on top of the server's environment (users' tokens)."""
     job = session.get(Job, job_id)
     assert job is not None
     if job.status == "cancelled" or job_id in _cancel_requested:
@@ -75,6 +77,7 @@ async def start_local_job(
             stderr=asyncio.subprocess.STDOUT,
             # Own process group, so cancel_job can kill its children too.
             start_new_session=True,
+            env={**os.environ, **env} if env else None,
         )
         _processes[job_id] = process
         if job_id in _cancel_requested:
@@ -130,6 +133,7 @@ async def start_local_job_with_own_session(
     command: list[str],
     log_dir: Path,
     broadcaster: EventBroadcaster = default_broadcaster,
+    env: dict[str, str] | None = None,
 ) -> None:
     """Entry point for BackgroundTasks — opens its own Session.
 
@@ -142,5 +146,5 @@ async def start_local_job_with_own_session(
     from app.db import engine as db_engine
 
     with Session(db_engine) as session:
-        await start_local_job(job_id, command, log_dir, session, broadcaster)
+        await start_local_job(job_id, command, log_dir, session, broadcaster, env)
 
