@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 def localtime(value: datetime, fmt: str = "%d.%m %H:%M") -> str:

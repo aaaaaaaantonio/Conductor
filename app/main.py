@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -44,7 +45,7 @@ def create_app() -> FastAPI:
     # exist yet when tests construct the app — a missing directory must not
     # crash app startup.
     app.mount(
-        "/static", StaticFiles(directory="app/static", check_dir=False), name="static"
+        "/static", StaticFiles(directory=Path(__file__).parent / "static", check_dir=False), name="static"
     )
 
     @app.on_event("startup")

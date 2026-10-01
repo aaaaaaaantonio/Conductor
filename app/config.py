@@ -1,4 +1,11 @@
 import os
+from pathlib import Path
+
+# Project root. Default file locations hang off it, so they don't depend on
+# the directory Conductor is started from.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'test_runner.db'}")
 
 JENKINS_BASE_URL = os.environ.get("JENKINS_BASE_URL", "http://localhost:8080")
 JENKINS_JOB_NAMES = {
@@ -28,6 +35,6 @@ CREDS_REFRESH_AFTER = int(os.environ.get("CREDS_REFRESH_AFTER", 60))
 # 10 years by default — effectively "never" while still bounded.
 CREDS_MAX_LIFETIME = int(os.environ.get("CREDS_MAX_LIFETIME", 10 * 365 * 86400))
 
-JOB_LOG_DIR = os.environ.get("JOB_LOG_DIR", "job_logs")
+JOB_LOG_DIR = Path(os.environ.get("JOB_LOG_DIR", BASE_DIR / "job_logs"))
 # Finished jobs and their log files are deleted after this many days.
 JOB_RETENTION_DAYS = int(os.environ.get("JOB_RETENTION_DAYS", 5))

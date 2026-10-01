@@ -1,12 +1,12 @@
 import json
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
-from app.config import JENKINS_JOB_NAMES, JOB_LOG_DIR, PYTHON_TEST_RUNNER_PATH
+from app import config
+from app.config import JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
 from app.db import get_session
 from app.execution.jenkins_launch import restart_python
 from app.templating import templates
@@ -16,7 +16,6 @@ from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
 
 router = APIRouter(tags=["launch-python"])
-LOG_DIR = Path(JOB_LOG_DIR)
 
 PYTHON_FIELDS = [
     FieldSpec(label="Team", flag_name="--team", type="number", required=True),
@@ -76,7 +75,7 @@ async def python_launch(
             "--dataset": dataset_id,
         }
         command = build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values)
-        background_tasks.add_task(start_local_job_with_own_session, job.id, command, LOG_DIR)
+        background_tasks.add_task(start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR)
     elif execution_mode == "jenkins":
         jenkins_params = {k: v for k, v in params.items() if v is not None}
 

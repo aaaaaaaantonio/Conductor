@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
@@ -7,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session, select
 
-from app.config import JOB_LOG_DIR
+from app import config
 from app.db import get_session
 from app.templating import templates
 from app.execution.command_builder import FieldSpec, FlagSpec, build_command
@@ -18,8 +17,6 @@ from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
 
 router = APIRouter(tags=["agent-testing"])
-
-LOG_DIR = Path(JOB_LOG_DIR)
 
 
 AgentName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -196,7 +193,7 @@ async def launch_agent_test(
     session.commit()
     session.refresh(job)
 
-    background_tasks.add_task(start_local_job_with_own_session, job.id, command, LOG_DIR)
+    background_tasks.add_task(start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR)
     return {"job_id": job.id}
 
 

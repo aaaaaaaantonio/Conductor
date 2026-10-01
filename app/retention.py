@@ -10,13 +10,13 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
-from app.config import JOB_LOG_DIR, JOB_RETENTION_DAYS
+from app import config
+from app.config import JOB_RETENTION_DAYS
 from app.models.jobs import Job
 
 ACTIVE_STATUSES = ("queued", "running", "triggering")
 PURGE_INTERVAL = 3600
 # Module-level so tests can point it at a temp directory.
-LOG_DIR = Path(JOB_LOG_DIR)
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def run_purge() -> None:
     from app.db import engine
 
     with Session(engine) as session:
-        deleted = purge_old_jobs(session, LOG_DIR)
+        deleted = purge_old_jobs(session, config.JOB_LOG_DIR)
     if deleted:
         logger.info("Deleted %d jobs older than %d days", deleted, JOB_RETENTION_DAYS)
 
