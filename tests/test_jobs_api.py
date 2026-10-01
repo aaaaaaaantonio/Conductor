@@ -123,6 +123,92 @@ async def test_stream_renders_escaped_job_tagged_log_line_and_json_status():
         await gen.aclose()
 
 
+@pytest.mark.asyncio
+async def test_stream_sends_heartbeat_when_idle(monkeypatch):
+    monkeypatch.setattr("app.routers.jobs.HEARTBEAT_INTERVAL", 0.05)
+    response = await stream_events()
+    gen = response.body_iterator
+    try:
+        assert await asyncio.wait_for(gen.__anext__(), timeout=1) == ": ping\n\n"
+    finally:
+        await gen.aclose()
+
+
+@pytest.mark.asyncio
+async def test_stream_ends_when_client_is_disconnected_for_overflow(monkeypatch):
+    from app.execution.broadcaster import EventBroadcaster
+
+    small = EventBroadcaster(queue_limit=1)
+    monkeypatch.setattr("app.routers.jobs.broadcaster", small)
+    response = await stream_events()
+    gen = response.body_iterator
+    try:
+        # Starts the generator, which subscribes on first iteration.
+        first = asyncio.ensure_future(gen.__anext__())
+        await asyncio.sleep(0)
+        await small.publish({"type": "job-status", "job_id": 1, "status": "running"})
+        await first
+        await small.publish({"type": "job-status", "job_id": 1, "status": "success"})
+        await small.publish({"type": "job-status", "job_id": 2, "status": "success"})
+        await small.publish({"type": "job-status", "job_id": 3, "status": "success"})
+        with pytest.raises(StopAsyncIteration):
+            await asyncio.wait_for(gen.__anext__(), timeout=1)
+    finally:
+        await gen.aclose()
+
+
+def _job_with_log(session, tmp_path, n_lines):
+    log_file = tmp_path / "job-big.log"
+    log_file.write_text("".join(f"row {i}\n" for i in range(1, n_lines + 1)))
+    job = Job(source="python", status="success", params_json="{}", log_path=str(log_file))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def test_log_fragment_shows_only_tail_with_real_line_numbers(client, session, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.routers.jobs.LOG_TAIL_LINES", 3)
+    job = _job_with_log(session, tmp_path, 10)
+
+    text = client.get(f"/jobs/{job.id}/fragments/log").text
+
+    assert "row 7" not in text
+    assert '<span class="ln">8</span>row 8' in text
+    assert '<span class="ln">10</span>row 10' in text
+    assert "последние 3 из 10" in text
+    assert f'href="/jobs/{job.id}/log.txt"' in text
+
+
+def test_short_log_has_no_truncation_note(client, session, tmp_path):
+    job = _job_with_log(session, tmp_path, 2)
+
+    text = client.get(f"/jobs/{job.id}/fragments/log").text
+
+    assert '<span class="ln">1</span>row 1' in text
+    assert "последние" not in text
+
+
+def test_full_log_download(client, session, tmp_path):
+    job = _job_with_log(session, tmp_path, 5)
+
+    resp = client.get(f"/jobs/{job.id}/log.txt")
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert resp.text.splitlines() == [f"row {i}" for i in range(1, 6)]
+
+
+def test_full_log_download_without_log_is_404(client, session):
+    job = Job(source="java", status="triggered", params_json="{}")
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    assert client.get(f"/jobs/{job.id}/log.txt").status_code == 404
+    assert client.get("/jobs/99999/log.txt").status_code == 404
+
+
 def test_job_log_fragment_returns_log_contents(client, session, tmp_path):
     log_file = tmp_path / "job-1.log"
     log_file.write_text("line one\nline two\n")

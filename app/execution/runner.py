@@ -12,8 +12,10 @@ from app.models.jobs import Job
 CANCELLED_LOG_LINE = "— Остановлено пользователем —"
 
 # Live subprocesses of running VM jobs, so a "Остановить" request can reach
-# them, and jobs asked to stop (possibly before their process exists yet).
+# them; jobs a runner is handling right now; and those of them asked to stop
+# (possibly before their process exists yet).
 _processes: dict[int, asyncio.subprocess.Process] = {}
+_owned: set[int] = set()
 _cancel_requested: set[int] = set()
 
 
@@ -30,8 +32,11 @@ def _kill(process: asyncio.subprocess.Process) -> None:
 
 def cancel_job(job_id: int) -> bool:
     """Ask a VM job to stop. Returns True if a live process was killed; a job
-    whose process hasn't started yet is stopped as soon as it does."""
-    _cancel_requested.add(job_id)
+    whose process hasn't started yet is stopped as soon as it does. A job no
+    runner holds (still queued, or left over from a restart) isn't remembered:
+    the caller marks it cancelled in the DB and the runner checks that."""
+    if job_id in _owned:
+        _cancel_requested.add(job_id)
     process = _processes.get(job_id)
     if process is None or process.returncode is not None:
         return False
@@ -48,6 +53,22 @@ async def start_local_job(
     env: dict[str, str] | None = None,
 ) -> None:
     """`env` is added on top of the server's environment (users' tokens)."""
+    _owned.add(job_id)
+    try:
+        await _run_local_job(job_id, command, log_dir, session, broadcaster, env)
+    finally:
+        _owned.discard(job_id)
+        _cancel_requested.discard(job_id)
+
+
+async def _run_local_job(
+    job_id: int,
+    command: list[str],
+    log_dir: Path,
+    session: Session,
+    broadcaster: EventBroadcaster,
+    env: dict[str, str] | None,
+) -> None:
     job = session.get(Job, job_id)
     assert job is not None
     if job.status == "cancelled" or job_id in _cancel_requested:

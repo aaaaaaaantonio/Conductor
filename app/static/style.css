@@ -202,6 +202,7 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .log > div{padding-left:3.2em; text-indent:-3.2em; white-space:pre-wrap; word-break:break-word}
 .log .ln{display:inline-block; width:2.4em; margin-right:.8em; text-align:right; text-indent:0; color:var(--term-faint); font-variant-numeric:tabular-nums; user-select:none}
 .log .log-empty-hint{color:#71807a; padding-left:0; text-indent:0}
+.log .log-truncated{color:#71807a; padding-left:0; text-indent:0; margin-bottom:6px}
 
 /* Jenkins launch replies: a feed, newest on top */
 #job-log-body:has(> .launch-msg){overflow-y:auto; max-height:70vh; padding:4px 18px 18px; gap:10px; flex:none}

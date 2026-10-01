@@ -73,6 +73,8 @@ def reset_runner_state():
 
     runner._processes.clear()
     runner._cancel_requested.clear()
+    runner._owned.clear()
     yield
     runner._processes.clear()
     runner._cancel_requested.clear()
+    runner._owned.clear()

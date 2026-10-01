@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -203,6 +204,42 @@ def test_cancel_unknown_job_returns_false():
     from app.execution import runner
 
     assert runner.cancel_job(987654) is False
+
+
+def test_cancel_job_without_a_runner_is_not_remembered():
+    # A "running" job left over from a restart has no runner to consume the
+    # request, so it must not linger in _cancel_requested forever.
+    from app.execution import runner
+
+    runner.cancel_job(987654)
+
+    assert 987654 not in runner._cancel_requested
+
+
+@pytest.mark.asyncio
+async def test_cancel_before_process_exists_still_stops_job(tmp_path: Path, session: Session, monkeypatch):
+    from app.execution import runner
+
+    job = _queued_job(session)
+    real_exec = runner.asyncio.create_subprocess_exec
+
+    async def cancel_then_spawn(*args, **kwargs):
+        assert runner.cancel_job(job.id) is False
+        return await real_exec(*args, **kwargs)
+
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", cancel_then_spawn)
+
+    await asyncio.wait_for(
+        runner.start_local_job(
+            job.id, ["python3", "-c", "import time; time.sleep(30)"], tmp_path, session, EventBroadcaster()
+        ),
+        timeout=5,
+    )
+
+    session.refresh(job)
+    assert job.status == "cancelled"
+    assert job.id not in runner._cancel_requested
+    assert job.id not in runner._owned
 
 
 @pytest.mark.asyncio

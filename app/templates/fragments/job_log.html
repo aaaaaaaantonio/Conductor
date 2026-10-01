@@ -13,7 +13,10 @@
   </div>
 {% endif %}
 <div class="log" data-job="{{ job.id if job else '' }}">
-{% for line in lines %}<div><span class="ln">{{ loop.index }}</span>{{ line }}</div>{% endfor %}
+{% if total_lines > lines | length %}
+  <div class="log-truncated">Показаны последние {{ lines | length }} из {{ total_lines }} строк · <a class="launch-msg-link" href="/jobs/{{ job.id }}/log.txt" download>Скачать полный лог</a></div>
+{% endif %}
+{% for line in lines %}<div><span class="ln">{{ first_line + loop.index0 }}</span>{{ line }}</div>{% endfor %}
 {% if not lines %}
   {% set via_jenkins = job and (job.jenkins_build_id or job.status in ('triggering', 'triggered') or job.source == 'java') %}
   {% if job and not job.log_path and (via_jenkins or job.status not in ('queued', 'running')) %}

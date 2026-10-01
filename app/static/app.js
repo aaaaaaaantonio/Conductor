@@ -176,7 +176,9 @@
     if (hint) hint.remove();
     var ln = document.createElement("span");
     ln.className = "ln";
-    ln.textContent = target.querySelectorAll(".ln").length + 1;
+    // Continue from the last number shown: a long log starts mid-file.
+    var lns = target.querySelectorAll(".ln");
+    ln.textContent = lns.length ? Number(lns[lns.length - 1].textContent) + 1 : 1;
     lineEl.insertBefore(ln, lineEl.firstChild);
     target.appendChild(lineEl);
     target.scrollTop = target.scrollHeight;

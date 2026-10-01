@@ -1,13 +1,14 @@
 import asyncio
 import html
 import json
+from collections import deque
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from sqlmodel import Session, select
 
 from app.credentials import Credentials, get_credentials
@@ -19,6 +20,12 @@ from app.models.jobs import Job
 from app.templating import templates
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+# The log panel shows only the end of a long log; /jobs/{id}/log.txt has it all.
+LOG_TAIL_LINES = 2000
+# Seconds of silence after which the event stream sends a keep-alive comment,
+# so proxies don't drop it and dead clients are noticed on write.
+HEARTBEAT_INTERVAL = 15
 
 
 @router.get("/fragments/list", response_class=HTMLResponse)
@@ -150,12 +157,26 @@ def job_log_fragment(
     request: Request, job_id: int, session: Session = Depends(get_session)
 ) -> HTMLResponse:
     job = session.get(Job, job_id)
-    lines: list[str] = []
+    lines: deque[str] = deque(maxlen=LOG_TAIL_LINES)
+    total = 0
     if job is not None and job.log_path is not None and Path(job.log_path).exists():
-        lines = Path(job.log_path).read_text().splitlines()
+        with Path(job.log_path).open() as log_file:
+            for line in log_file:
+                lines.append(line.rstrip("\n"))
+                total += 1
     return templates.TemplateResponse(
-        request, "fragments/job_log.html", {"lines": lines, "job": job}
+        request,
+        "fragments/job_log.html",
+        {"lines": lines, "job": job, "total_lines": total, "first_line": total - len(lines) + 1},
     )
+
+
+@router.get("/{job_id}/log.txt")
+def job_log_download(job_id: int, session: Session = Depends(get_session)) -> FileResponse:
+    job = session.get(Job, job_id)
+    if job is None or job.log_path is None or not Path(job.log_path).exists():
+        raise HTTPException(status_code=404, detail="Лога нет")
+    return FileResponse(job.log_path, media_type="text/plain; charset=utf-8", filename=f"job-{job_id}.log")
 
 
 @router.get("/stream")
@@ -165,7 +186,14 @@ async def stream_events() -> StreamingResponse:
     async def event_generator():
         try:
             while True:
-                event = await queue.get()
+                try:
+                    event = await asyncio.wait_for(queue.get(), HEARTBEAT_INTERVAL)
+                except TimeoutError:
+                    yield ": ping\n\n"
+                    continue
+                if event is None:
+                    # Fell too far behind; the browser reconnects.
+                    return
                 if event["type"] == "log-line":
                     # app.js appends this to the open log panel if data-job
                     # matches the job shown there — render a single escaped
