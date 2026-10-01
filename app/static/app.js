@@ -181,6 +181,12 @@
     ln.textContent = lns.length ? Number(lns[lns.length - 1].textContent) + 1 : 1;
     lineEl.insertBefore(ln, lineEl.firstChild);
     target.appendChild(lineEl);
+    // Keep the panel to the server's tail size during a long live run.
+    var tail = Number(target.dataset.tail) || 0;
+    if (tail) {
+      var shown = target.querySelectorAll(":scope > div > .ln");
+      for (var i = 0; i < shown.length - tail; i++) shown[i].parentNode.remove();
+    }
     target.scrollTop = target.scrollHeight;
   });
 

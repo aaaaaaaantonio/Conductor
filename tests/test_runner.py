@@ -249,7 +249,8 @@ async def test_start_local_job_adds_env_on_top_of_server_env(tmp_path: Path, ses
     session.commit()
     session.refresh(job)
 
-    command = ["python3", "-c", "import os; print(os.environ['ZEPHYR_TOKEN']); print(bool(os.environ.get('PATH')))"]
+    script = "import os; print(os.environ['ZEPHYR_TOKEN'] == 'ze-1'); print(bool(os.environ.get('PATH')))"
+    command = ["python3", "-c", script]
     await start_local_job(
         job_id=job.id,
         command=command,
@@ -261,4 +262,71 @@ async def test_start_local_job_adds_env_on_top_of_server_env(tmp_path: Path, ses
 
     session.refresh(job)
     assert job.status == "success"
-    assert Path(job.log_path).read_text().splitlines() == ["ze-1", "True"]
+    assert Path(job.log_path).read_text().splitlines() == ["True", "True"]
+
+
+async def _run(session, tmp_path, script, env=None, broadcaster=None):
+    job = _queued_job(session)
+    await start_local_job(
+        job.id, ["python3", "-c", script], tmp_path, session, broadcaster or EventBroadcaster(), env=env
+    )
+    session.refresh(job)
+    return job
+
+
+def _drain(queue):
+    events = []
+    while not queue.empty():
+        events.append(queue.get_nowait())
+    return [e["line"] for e in events if e and e["type"] == "log-line"]
+
+
+@pytest.mark.asyncio
+async def test_very_long_line_is_kept_whole_in_file_and_tail_shown_live(tmp_path, session, monkeypatch):
+    monkeypatch.setattr("app.config.LOG_LINE_MAX_CHARS", 50)
+    test_broadcaster = EventBroadcaster()
+    queue = test_broadcaster.subscribe()
+
+    job = await _run(
+        session, tmp_path, "print('a' * 199_990 + 'END_OF_IT'); print('after')", broadcaster=test_broadcaster
+    )
+
+    assert job.status == "success"
+    file_lines = Path(job.log_path).read_text().splitlines()
+    assert file_lines == ["a" * 199_990 + "END_OF_IT", "after"]
+    live = _drain(queue)
+    assert live[0].startswith("[начало обрезано")
+    assert "199999" in live[0]
+    assert live[0].endswith("a" * 41 + "END_OF_IT")
+    assert live[1] == "after"
+
+
+@pytest.mark.asyncio
+async def test_last_line_without_newline_is_logged(tmp_path, session):
+    job = await _run(session, tmp_path, "import sys; sys.stdout.write('one\\ntwo')")
+    assert Path(job.log_path).read_text().splitlines() == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_tokens_are_masked_in_file_and_live_log(tmp_path, session):
+    test_broadcaster = EventBroadcaster()
+    queue = test_broadcaster.subscribe()
+
+    job = await _run(
+        session,
+        tmp_path,
+        "import os; print('token=' + os.environ['ZEPHYR_TOKEN']); print(os.environ['ALLURE_TOKEN'] + '!')",
+        env={"ZEPHYR_TOKEN": "ze-secret-1", "ALLURE_TOKEN": "al-secret-2"},
+        broadcaster=test_broadcaster,
+    )
+
+    text = Path(job.log_path).read_text()
+    assert "secret" not in text
+    assert text.splitlines() == ["token=***", "***!"]
+    assert _drain(queue) == ["token=***", "***!"]
+
+
+@pytest.mark.asyncio
+async def test_very_short_token_values_are_not_masked(tmp_path, session):
+    job = await _run(session, tmp_path, "print('abc def')", env={"ZEPHYR_TOKEN": "abc"})
+    assert Path(job.log_path).read_text().splitlines() == ["abc def"]

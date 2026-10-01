@@ -2,27 +2,27 @@ import asyncio
 import html
 import json
 from collections import deque
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlmodel import Session, select
 
+from app import config
 from app.credentials import Credentials, get_credentials
 from app.db import get_session
 from app.execution.broadcaster import broadcaster
 from app.execution.jenkins_launch import LaunchResult, launch_in_jenkins
+from app.execution.log_lines import for_display
 from app.execution.runner import cancel_job
 from app.models.jobs import Job
 from app.templating import templates
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-# The log panel shows only the end of a long log; /jobs/{id}/log.txt has it all.
-LOG_TAIL_LINES = 2000
 # Seconds of silence after which the event stream sends a keep-alive comment,
 # so proxies don't drop it and dead clients are noticed on write.
 HEARTBEAT_INTERVAL = 15
@@ -157,26 +157,51 @@ def job_log_fragment(
     request: Request, job_id: int, session: Session = Depends(get_session)
 ) -> HTMLResponse:
     job = session.get(Job, job_id)
-    lines: deque[str] = deque(maxlen=LOG_TAIL_LINES)
+    # Only the last lines are kept, each cut for display, so a huge log
+    # never sits in memory whole; /jobs/{id}/log.txt has all of it.
+    lines: deque[str] = deque(maxlen=config.LOG_TAIL_LINES)
     total = 0
     if job is not None and job.log_path is not None and Path(job.log_path).exists():
         with Path(job.log_path).open() as log_file:
             for line in log_file:
-                lines.append(line.rstrip("\n"))
+                lines.append(for_display(line.rstrip("\n"), config.LOG_LINE_MAX_CHARS))
                 total += 1
     return templates.TemplateResponse(
         request,
         "fragments/job_log.html",
-        {"lines": lines, "job": job, "total_lines": total, "first_line": total - len(lines) + 1},
+        {
+            "lines": lines,
+            "job": job,
+            "total_lines": total,
+            "first_line": total - len(lines) + 1,
+            "tail": config.LOG_TAIL_LINES,
+        },
     )
 
 
+def _file_prefix(path: str, length: int) -> Iterator[bytes]:
+    with open(path, "rb") as f:
+        while length > 0 and (chunk := f.read(min(64 * 1024, length))):
+            length -= len(chunk)
+            yield chunk
+
+
 @router.get("/{job_id}/log.txt")
-def job_log_download(job_id: int, session: Session = Depends(get_session)) -> FileResponse:
+def job_log_download(job_id: int, session: Session = Depends(get_session)) -> StreamingResponse:
     job = session.get(Job, job_id)
     if job is None or job.log_path is None or not Path(job.log_path).exists():
         raise HTTPException(status_code=404, detail="Лога нет")
-    return FileResponse(job.log_path, media_type="text/plain; charset=utf-8", filename=f"job-{job_id}.log")
+    # A running job keeps appending: send exactly what exists now, or the
+    # body would outgrow its Content-Length and the download would break.
+    size = Path(job.log_path).stat().st_size
+    return StreamingResponse(
+        _file_prefix(job.log_path, size),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Length": str(size),
+            "Content-Disposition": f'attachment; filename="job-{job_id}.log"',
+        },
+    )
 
 
 @router.get("/stream")

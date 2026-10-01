@@ -46,3 +46,8 @@ CONDUCTOR_ALLOWED_ORIGINS = [
 JOB_LOG_DIR = Path(os.environ.get("JOB_LOG_DIR", BASE_DIR / "job_logs"))
 # Finished jobs and their log files are deleted after this many days.
 JOB_RETENTION_DAYS = int(os.environ.get("JOB_RETENTION_DAYS", 5))
+# The log panel shows this many last lines; the full log is downloadable.
+LOG_TAIL_LINES = int(os.environ.get("LOG_TAIL_LINES", 200))
+# Longer lines are shown in the browser by their last this-many characters;
+# the log file keeps them whole.
+LOG_LINE_MAX_CHARS = int(os.environ.get("LOG_LINE_MAX_CHARS", 5000))

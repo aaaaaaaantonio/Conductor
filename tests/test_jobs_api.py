@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import time
 
 import httpx
@@ -168,7 +169,7 @@ def _job_with_log(session, tmp_path, n_lines):
 
 
 def test_log_fragment_shows_only_tail_with_real_line_numbers(client, session, tmp_path, monkeypatch):
-    monkeypatch.setattr("app.routers.jobs.LOG_TAIL_LINES", 3)
+    monkeypatch.setattr("app.config.LOG_TAIL_LINES", 3)
     job = _job_with_log(session, tmp_path, 10)
 
     text = client.get(f"/jobs/{job.id}/fragments/log").text
@@ -197,6 +198,53 @@ def test_full_log_download(client, session, tmp_path):
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/plain")
     assert resp.text.splitlines() == [f"row {i}" for i in range(1, 6)]
+
+
+def test_log_fragment_shows_end_of_overlong_lines(client, session, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.config.LOG_LINE_MAX_CHARS", 10)
+    log_file = tmp_path / "job-long.log"
+    log_file.write_text("x" * 100 + "0123456789\nshort\n")
+    job = Job(source="python", status="success", params_json="{}", log_path=str(log_file))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    text = client.get(f"/jobs/{job.id}/fragments/log").text
+
+    assert "x" * 11 not in text
+    assert "0123456789" in text
+    assert "начало обрезано" in text and "110" in text
+    assert "short" in text
+
+
+def test_log_panel_carries_tail_size_for_live_trimming(client, session, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.config.LOG_TAIL_LINES", 7)
+    job = _job_with_log(session, tmp_path, 2)
+    assert 'data-tail="7"' in client.get(f"/jobs/{job.id}/fragments/log").text
+
+
+def test_full_log_download_stops_at_size_when_requested(client, session, tmp_path, monkeypatch):
+    # A running job keeps appending; the download must send exactly the
+    # bytes present when it was requested (matching Content-Length).
+    job = _job_with_log(session, tmp_path, 3)
+    size = os.path.getsize(job.log_path)
+
+    import app.routers.jobs as jobs
+
+    real_prefix = jobs._file_prefix
+
+    def grow_then_read(path, length):
+        with open(path, "a") as grow:
+            grow.write("appended later\n")
+        return real_prefix(path, length)
+
+    monkeypatch.setattr(jobs, "_file_prefix", grow_then_read)
+    resp = client.get(f"/jobs/{job.id}/log.txt")
+
+    assert resp.status_code == 200
+    assert int(resp.headers["content-length"]) == size
+    assert len(resp.content) == size
+    assert "appended later" not in resp.text
 
 
 def test_full_log_download_without_log_is_404(client, session):

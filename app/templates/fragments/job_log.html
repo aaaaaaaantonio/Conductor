@@ -12,7 +12,7 @@
     {% endif %}
   </div>
 {% endif %}
-<div class="log" data-job="{{ job.id if job else '' }}">
+<div class="log" data-job="{{ job.id if job else '' }}" data-tail="{{ tail }}">
 {% if total_lines > lines | length %}
   <div class="log-truncated">Показаны последние {{ lines | length }} из {{ total_lines }} строк · <a class="launch-msg-link" href="/jobs/{{ job.id }}/log.txt" download>Скачать полный лог</a></div>
 {% endif %}

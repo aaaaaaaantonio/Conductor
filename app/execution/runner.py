@@ -5,8 +5,10 @@ from pathlib import Path
 
 from sqlmodel import Session
 
+from app import config
 from app.execution.broadcaster import EventBroadcaster
 from app.execution.broadcaster import broadcaster as default_broadcaster
+from app.execution.log_lines import for_display, mask, read_lines
 from app.models.jobs import Job
 
 CANCELLED_LOG_LINE = "— Остановлено пользователем —"
@@ -106,11 +108,15 @@ async def _run_local_job(
 
         with log_path.open("w") as log_file:
             assert process.stdout is not None
-            async for raw_line in process.stdout:
-                line = raw_line.decode(errors="replace").rstrip("\n")
+            # The users' tokens are passed in env; keep them out of the log.
+            secrets = list(env.values()) if env else []
+            async for raw_line in read_lines(process.stdout):
+                line = mask(raw_line, secrets)
                 log_file.write(line + "\n")
                 log_file.flush()
-                await broadcaster.publish({"type": "log-line", "job_id": job_id, "line": line})
+                await broadcaster.publish(
+                    {"type": "log-line", "job_id": job_id, "line": for_display(line, config.LOG_LINE_MAX_CHARS)}
+                )
 
             return_code = await process.wait()
             if job_id in _cancel_requested:
