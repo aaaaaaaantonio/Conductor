@@ -258,6 +258,9 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .ref-row .ref-edit, .ref-row .ref-del{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.85rem; padding:2px 8px; border-radius:4px}
 .ref-row .ref-edit:hover{background:var(--page); color:var(--ink)}
 .ref-row .ref-del:hover{background:var(--status-fail-bg); color:var(--status-fail)}
+.ref-row .ref-move{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.7rem; padding:2px 6px; border-radius:4px}
+.ref-row .ref-move:hover:not(:disabled){background:var(--page); color:var(--ink)}
+.ref-row .ref-move:disabled{opacity:.3; cursor:default}
 .ref-row .ref-edit-value, .ref-row .ref-edit-command{flex:1; min-width:0; padding:5px 8px; border:1px solid var(--line); border-radius:6px; font-size:.82rem; background:var(--surface); color:var(--ink)}
 .ref-row .ref-edit-save, .ref-row .ref-edit-cancel{flex-shrink:0; padding:4px 10px}
 .ref-empty{color:var(--ink-faint); font-size:.8rem; padding:4px 8px 12px}

@@ -133,3 +133,161 @@ def test_duplicate_reference_error_is_in_russian(client):
     resp = client.post("/api/references", json={"category": "team", "value": "QA"})
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Такое значение уже есть в этой категории"
+
+
+def _create(client, category, value, parent_id=None):
+    payload = {"category": category, "value": value, "parent_id": parent_id}
+    resp = client.post("/api/references", json=payload)
+    assert resp.status_code == 201
+    return resp.json()
+
+
+def _values(client, category, parent_id=None):
+    params = {"category": category}
+    if parent_id is not None:
+        params["parent_id"] = parent_id
+    return [i["value"] for i in client.get("/api/references", params=params).json()]
+
+
+def test_new_reference_goes_to_end_of_its_group(client):
+    _create(client, "team", "Zeta")
+    _create(client, "team", "Alpha")
+    assert _values(client, "team") == ["Zeta", "Alpha"]
+
+
+def test_move_reference_up_and_down(client):
+    a = _create(client, "team", "A")
+    _create(client, "team", "B")
+    c = _create(client, "team", "C")
+
+    resp = client.post(f"/api/references/{c['id']}/move", json={"direction": "up"})
+    assert resp.status_code == 204
+    assert _values(client, "team") == ["A", "C", "B"]
+
+    resp = client.post(f"/api/references/{a['id']}/move", json={"direction": "down"})
+    assert resp.status_code == 204
+    assert _values(client, "team") == ["C", "A", "B"]
+
+
+def test_move_past_the_edge_is_a_no_op(client):
+    a = _create(client, "team", "A")
+    b = _create(client, "team", "B")
+    assert client.post(f"/api/references/{a['id']}/move", json={"direction": "up"}).status_code == 204
+    assert client.post(f"/api/references/{b['id']}/move", json={"direction": "down"}).status_code == 204
+    assert _values(client, "team") == ["A", "B"]
+
+
+def test_move_renumbers_legacy_rows_that_all_share_sort_order_zero(client, session):
+    from app.models.reference import ReferenceItem
+
+    for value in ["C", "A", "B"]:
+        session.add(ReferenceItem(category="stand", value=value, sort_order=0))
+    session.commit()
+    assert _values(client, "stand") == ["A", "B", "C"]
+
+    c = next(i for i in client.get("/api/references", params={"category": "stand"}).json() if i["value"] == "C")
+    client.post(f"/api/references/{c['id']}/move", json={"direction": "up"})
+    assert _values(client, "stand") == ["A", "C", "B"]
+
+
+def test_move_only_reorders_siblings_with_the_same_parent(client):
+    team_a = _create(client, "team", "A")
+    team_b = _create(client, "team", "B")
+    a1 = _create(client, "test_name", "a1", team_a["id"])
+    _create(client, "test_name", "a2", team_a["id"])
+    _create(client, "test_name", "b1", team_b["id"])
+    _create(client, "test_name", "b2", team_b["id"])
+
+    client.post(f"/api/references/{a1['id']}/move", json={"direction": "down"})
+    assert _values(client, "test_name", team_a["id"]) == ["a2", "a1"]
+    assert _values(client, "test_name", team_b["id"]) == ["b1", "b2"]
+
+
+def test_move_ignores_soft_deleted_siblings(client):
+    _create(client, "team", "A")
+    b = _create(client, "team", "B")
+    c = _create(client, "team", "C")
+    client.delete(f"/api/references/{b['id']}")
+
+    client.post(f"/api/references/{c['id']}/move", json={"direction": "up"})
+    assert _values(client, "team") == ["C", "A"]
+
+
+def test_move_missing_or_deleted_reference_returns_404(client):
+    resp = client.post("/api/references/999/move", json={"direction": "up"})
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Запись не найдена"
+
+    team = _create(client, "team", "A")
+    client.delete(f"/api/references/{team['id']}")
+    resp = client.post(f"/api/references/{team['id']}/move", json={"direction": "up"})
+    assert resp.status_code == 404
+
+
+def test_move_with_unknown_direction_returns_422(client):
+    team = _create(client, "team", "A")
+    resp = client.post(f"/api/references/{team['id']}/move", json={"direction": "left"})
+    assert resp.status_code == 422
+
+
+def test_reparenting_puts_reference_at_end_of_new_group(client):
+    team_a = _create(client, "team", "A")
+    team_b = _create(client, "team", "B")
+    moved = _create(client, "test_name", "x", team_a["id"])
+    _create(client, "test_name", "b1", team_b["id"])
+    _create(client, "test_name", "b2", team_b["id"])
+
+    resp = client.put(
+        f"/api/references/{moved['id']}", json={"value": "a-first", "parent_id": team_b["id"]}
+    )
+    assert resp.status_code == 200
+    assert _values(client, "test_name", team_b["id"]) == ["b1", "b2", "a-first"]
+
+
+def test_dataset_fragment_follows_custom_order(client):
+    team = _create(client, "team", "T")
+    test = _create(client, "test_name", "t", team["id"])
+    _create(client, "dataset", "ds-1", test["id"])
+    ds2 = _create(client, "dataset", "ds-2", test["id"])
+    client.post(f"/api/references/{ds2['id']}/move", json={"direction": "up"})
+
+    html = client.get("/api/references/fragments/datasets", params={"test_name_id": test["id"]}).text
+    assert html.index("ds-2") < html.index("ds-1")
+
+
+def test_references_page_follows_custom_order(client):
+    team_a = _create(client, "team", "Alpha")
+    team_z = _create(client, "team", "Zeta")
+    _create(client, "stand", "s-alpha")
+    s_zeta = _create(client, "stand", "s-zeta")
+    _create(client, "test_name", "t-alpha", team_a["id"])
+    _create(client, "test_name", "t-zeta", team_z["id"])
+    t1 = _create(client, "test_name", "a-1", team_a["id"])
+    _create(client, "dataset", "d-1", t1["id"])
+    d2 = _create(client, "dataset", "d-2", t1["id"])
+
+    client.post(f"/api/references/{team_z['id']}/move", json={"direction": "up"})
+    client.post(f"/api/references/{s_zeta['id']}/move", json={"direction": "up"})
+    client.post(f"/api/references/{t1['id']}/move", json={"direction": "up"})
+    client.post(f"/api/references/{d2['id']}/move", json={"direction": "up"})
+
+    html = client.get("/references").text
+    teams_panel = html[html.index('id="panel-teams"'):html.index('id="panel-stands"')]
+    assert teams_panel.index("Zeta") < teams_panel.index("Alpha")
+    stands_panel = html[html.index('id="panel-stands"'):html.index('id="panel-test-names"')]
+    assert stands_panel.index("s-zeta") < stands_panel.index("s-alpha")
+    tests_panel = html[html.index('id="panel-test-names"'):html.index('id="panel-datasets"')]
+    # Team groups follow team order; tests inside a team follow their own order.
+    assert tests_panel.index('id="team-tests-%d"' % team_z["id"]) < tests_panel.index('id="team-tests-%d"' % team_a["id"])
+    assert tests_panel.index("a-1") < tests_panel.index("t-alpha")
+    datasets_panel = html[html.index('id="panel-datasets"'):]
+    assert datasets_panel.index("d-2") < datasets_panel.index("d-1")
+
+
+def test_references_page_renders_move_buttons_with_edges_disabled(client):
+    a = _create(client, "team", "A")
+    b = _create(client, "team", "B")
+    html = client.get("/references").text
+    assert 'class="ref-move" data-move-url="/api/references/%d/move" data-direction="up" disabled' % a["id"] in html
+    assert 'class="ref-move" data-move-url="/api/references/%d/move" data-direction="down" disabled' % b["id"] in html
+    assert 'class="ref-move" data-move-url="/api/references/%d/move" data-direction="down" title=' % a["id"] in html

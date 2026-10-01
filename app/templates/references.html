@@ -2,6 +2,10 @@
 {% block title %}Справочники{% endblock %}
 {% block subtitle %}Команды, стенды, тесты и датасеты{% endblock %}
 {% block content %}
+{% macro move_buttons(item, loop) -%}
+<button type="button" class="ref-move" data-move-url="/api/references/{{ item.id }}/move" data-direction="up"{% if loop.first %} disabled{% endif %} title="Выше">▲</button>
+<button type="button" class="ref-move" data-move-url="/api/references/{{ item.id }}/move" data-direction="down"{% if loop.last %} disabled{% endif %} title="Ниже">▼</button>
+{%- endmacro %}
 <div class="layout refs">
 
   <details class="panel ref-panel" id="panel-teams" open>
@@ -12,6 +16,7 @@
           <div class="ref-row" data-id="{{ team.id }}" data-value="{{ team.value }}">
             <span class="ref-label">{{ team.value }}</span>
             <span class="ref-actions">
+              {{ move_buttons(team, loop) }}
               <button type="button" class="ref-edit">✎</button>
               <button type="button" class="ref-del" data-delete-url="/api/references/{{ team.id }}">✕</button>
             </span>
@@ -39,6 +44,7 @@
             <summary class="ref-row" data-id="{{ stand.id }}" data-value="{{ stand.value }}">
               <span class="ref-label">{{ stand.value }}</span>
               <span class="ref-actions">
+                {{ move_buttons(stand, loop) }}
                 <button type="button" class="ref-edit">✎</button>
                 <button type="button" class="ref-del" data-delete-url="/api/references/{{ stand.id }}">✕</button>
               </span>
@@ -74,6 +80,7 @@
                 <div class="ref-row" data-id="{{ tn.id }}" data-value="{{ tn.value }}" data-parent="{{ tn.parent_id or '' }}" data-command="{{ tn.command or '' }}" data-command-label="Команда запуска">
                   <span class="ref-label">{{ tn.value }}{% if tn.command %} <span class="ref-meta">&middot; <code>{{ tn.command }}</code></span>{% endif %}</span>
                   <span class="ref-actions">
+                    {{ move_buttons(tn, loop) }}
                     <button type="button" class="ref-edit">✎</button>
                     <button type="button" class="ref-del" data-delete-url="/api/references/{{ tn.id }}">✕</button>
                   </span>
@@ -129,6 +136,7 @@
                       <div class="ref-row" data-id="{{ ds.id }}" data-value="{{ ds.value }}" data-parent="{{ ds.parent_id or '' }}" data-command="{{ ds.command or '' }}">
                         <span class="ref-label">{{ ds.value }}{% if ds.command %} <span class="ref-meta">&middot; <code>{{ ds.command }}</code></span>{% endif %}</span>
                         <span class="ref-actions">
+                          {{ move_buttons(ds, loop) }}
                           <button type="button" class="ref-edit">✎</button>
                           <button type="button" class="ref-del" data-delete-url="/api/references/{{ ds.id }}">✕</button>
                         </span>
@@ -325,7 +333,7 @@
     if (e.key === "Escape") closeStandModal();
   });
 
-  // --- delete + inline edit + stand-team unlink + modal, via delegation ---
+  // --- move + delete + inline edit + stand-team unlink + modal, via delegation ---
   window.bindPersistent(document.body, "click", "__refsClickHandler", function (e) {
     // Stand rows are a <summary> (accordion toggle for the team-chip list).
     // startEdit() injects its inputs directly into that <summary>, so a
@@ -367,6 +375,27 @@
         });
       }).catch(function (err) {
         formError.showAfter(chips, "Не удалось отвязать: " + err);
+      });
+      return;
+    }
+
+    var moveBtn = e.target.closest(".ref-move");
+    if (moveBtn) {
+      e.preventDefault();
+      if (moveBtn.disabled) return;
+      formError.clearAll();
+      var moveAnchor = rowAnchor(moveBtn.closest(".ref-row"));
+      fetch(moveBtn.dataset.moveUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction: moveBtn.dataset.direction }),
+      }).then(function (resp) {
+        if (resp.ok) { reload(); return; }
+        formError.fromResponse(resp, "Не удалось переместить").then(function (message) {
+          formError.showAfter(moveAnchor, message);
+        });
+      }).catch(function (err) {
+        formError.showAfter(moveAnchor, "Не удалось переместить: " + err);
       });
       return;
     }

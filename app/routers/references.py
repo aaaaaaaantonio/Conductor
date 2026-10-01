@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
@@ -9,7 +9,13 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.templating import templates
 from app.grouping import group_by
-from app.models.reference import ReferenceItem, TeamStandLink, active_references
+from app.models.reference import (
+    ReferenceItem,
+    TeamStandLink,
+    active_references,
+    next_sort_order,
+    sibling_references,
+)
 
 router = APIRouter(prefix="/api/references", tags=["references"])
 page_router = APIRouter(tags=["references-ui"])
@@ -50,6 +56,7 @@ def create_reference_item(
     if existing is not None:
         raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
     item.id = None
+    item.sort_order = next_sort_order(session, item.category, item.parent_id)
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -80,6 +87,8 @@ def update_reference_item(
     ).first()
     if duplicate is not None:
         raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
+    if payload.parent_id != item.parent_id:
+        item.sort_order = next_sort_order(session, item.category, payload.parent_id)
     item.value = payload.value
     item.parent_id = payload.parent_id
     item.command = payload.command
@@ -87,6 +96,32 @@ def update_reference_item(
     session.commit()
     session.refresh(item)
     return item
+
+
+class ReferenceMoveRequest(BaseModel):
+    direction: Literal["up", "down"]
+
+
+@router.post("/{item_id}/move", status_code=204)
+def move_reference_item(
+    item_id: int, payload: ReferenceMoveRequest, session: Session = Depends(get_session)
+) -> Response:
+    item = session.get(ReferenceItem, item_id)
+    if item is None or not item.is_active:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    siblings = sibling_references(session, item.category, item.parent_id)
+    index = next(i for i, s in enumerate(siblings) if s.id == item.id)
+    target = index - 1 if payload.direction == "up" else index + 1
+    if 0 <= target < len(siblings):
+        siblings[index], siblings[target] = siblings[target], siblings[index]
+    # Renumber the whole group: rows created before ordering existed all
+    # share sort_order 0, so swapping just two values would change nothing.
+    for position, sibling in enumerate(siblings):
+        if sibling.sort_order != position:
+            sibling.sort_order = position
+            session.add(sibling)
+    session.commit()
+    return Response(status_code=204)
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -187,7 +222,9 @@ def dataset_options_fragment(
 def references_page(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
     items = list(
         session.exec(
-            select(ReferenceItem).where(ReferenceItem.is_active == True)  # noqa: E712
+            select(ReferenceItem)
+            .where(ReferenceItem.is_active == True)  # noqa: E712
+            .order_by(ReferenceItem.sort_order, ReferenceItem.value, ReferenceItem.id)
         ).all()
     )
     teams = [i for i in items if i.category == "team"]
@@ -211,7 +248,7 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     tests_by_team_id = group_by(test_names, lambda tn: tn.parent_id)
     tests_by_team: list[tuple[ReferenceItem, list[ReferenceItem]]] = []
     matched_team_ids: set[Optional[int]] = set()
-    for team in sorted(teams, key=lambda t: t.value):
+    for team in teams:
         if team.id in tests_by_team_id:
             tests_by_team.append((team, tests_by_team_id[team.id]))
             matched_team_ids.add(team.id)
