@@ -1,3 +1,5 @@
+import pytest
+
 from app.execution.command_builder import FieldSpec, FlagSpec, build_command
 
 
@@ -26,11 +28,8 @@ def test_build_command_checkbox_true_is_bare_flag():
 
 def test_build_command_missing_required_field_raises():
     fields = [FieldSpec(label="Users", flag_name="--users", type="number", required=True)]
-    try:
+    with pytest.raises(ValueError, match="--users"):
         build_command("path/to/test.py", fields, {})
-        assert False, "expected ValueError"
-    except ValueError as exc:
-        assert "--users" in str(exc)
 
 
 def test_build_command_appends_flags_not_covered_by_fields():

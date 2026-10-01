@@ -30,7 +30,7 @@ def _parse_date(value: str | None, name: str) -> date | None:
     try:
         return date.fromisoformat(value)
     except ValueError:
-        raise HTTPException(status_code=422, detail=f"{name}: ожидается дата ГГГГ-ММ-ДД")
+        raise HTTPException(status_code=422, detail=f"{name}: ожидается дата ГГГГ-ММ-ДД") from None
 
 
 def _local_midnight_utc(day: date) -> datetime:

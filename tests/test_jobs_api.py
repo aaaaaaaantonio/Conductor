@@ -49,7 +49,10 @@ def test_python_tab_job_list_div_has_load_and_sse_trigger(client):
     # swap, since the fragment now carries no wrapper element at all.
     resp = client.get("/python")
     assert resp.status_code == 200
-    assert '<div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML">' in resp.text
+    assert (
+        '<div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML">'
+        in resp.text
+    )
 
 
 def test_python_tab_cascading_selects_carry_corrected_triggers(client):

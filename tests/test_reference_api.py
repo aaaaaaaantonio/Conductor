@@ -278,7 +278,7 @@ def test_references_page_follows_custom_order(client):
     assert stands_panel.index("s-zeta") < stands_panel.index("s-alpha")
     tests_panel = html[html.index('id="panel-test-names"'):html.index('id="panel-datasets"')]
     # Team groups follow team order; tests inside a team follow their own order.
-    assert tests_panel.index('id="team-tests-%d"' % team_z["id"]) < tests_panel.index('id="team-tests-%d"' % team_a["id"])
+    assert tests_panel.index(f'id="team-tests-{team_z["id"]}"') < tests_panel.index(f'id="team-tests-{team_a["id"]}"')
     assert tests_panel.index("a-1") < tests_panel.index("t-alpha")
     datasets_panel = html[html.index('id="panel-datasets"'):]
     assert datasets_panel.index("d-2") < datasets_panel.index("d-1")
@@ -288,6 +288,6 @@ def test_references_page_renders_move_buttons_with_edges_disabled(client):
     a = _create(client, "team", "A")
     b = _create(client, "team", "B")
     html = client.get("/references").text
-    assert 'class="ref-move" data-move-url="/api/references/%d/move" data-direction="up" disabled' % a["id"] in html
-    assert 'class="ref-move" data-move-url="/api/references/%d/move" data-direction="down" disabled' % b["id"] in html
-    assert 'class="ref-move" data-move-url="/api/references/%d/move" data-direction="down" title=' % a["id"] in html
+    assert f'class="ref-move" data-move-url="/api/references/{a["id"]}/move" data-direction="up" disabled' in html
+    assert f'class="ref-move" data-move-url="/api/references/{b["id"]}/move" data-direction="down" disabled' in html
+    assert f'class="ref-move" data-move-url="/api/references/{a["id"]}/move" data-direction="down" title=' in html
