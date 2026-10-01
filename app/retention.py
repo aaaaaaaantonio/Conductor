@@ -16,7 +16,6 @@ from app.models.jobs import Job
 
 ACTIVE_STATUSES = ("queued", "running", "triggering")
 PURGE_INTERVAL = 3600
-# Module-level so tests can point it at a temp directory.
 
 logger = logging.getLogger(__name__)
 
