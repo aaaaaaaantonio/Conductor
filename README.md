@@ -67,6 +67,7 @@ uv run uvicorn app.main:app
 | `COOKIE_SECURE` | `false` | `true`, когда Conductor работает по HTTPS. |
 | `CREDS_SESSION_IDLE_TTL` | `43200` (12 ч) | Сколько секунд без активности живут токены без галочки «Запомнить на этом компьютере». |
 | `CREDS_REMEMBER_IDLE_TTL` | `2592000` (30 дн.) | То же с галочкой «Запомнить». |
+| `CONDUCTOR_ALLOWED_ORIGINS` | пусто | Защита от CSRF: POST/PUT/DELETE с заголовком `Origin` чужого сайта отклоняются (403). По умолчанию `Origin` сверяется с `Host` запроса; если reverse proxy меняет `Host`, перечислите здесь адреса Conductor через запятую, например `https://conductor.company.ru`. |
 | `CREDS_REFRESH_AFTER` | `60` | Как часто (в секундах) cookie переиздаётся для продления. |
 | `CREDS_MAX_LIFETIME` | `315360000` (10 лет) | Жёсткий предел с момента ввода токенов, как бы активно ни работал пользователь. |
 

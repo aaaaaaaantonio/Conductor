@@ -36,6 +36,13 @@ CREDS_REFRESH_AFTER = int(os.environ.get("CREDS_REFRESH_AFTER", 60))
 # 10 years by default — effectively "never" while still bounded.
 CREDS_MAX_LIFETIME = int(os.environ.get("CREDS_MAX_LIFETIME", 10 * 365 * 86400))
 
+# Browser-side Origin values accepted on POST/PUT/PATCH/DELETE, comma
+# separated (e.g. "https://conductor.company.ru"). Empty: the request's own
+# Host. Needed only behind a proxy that rewrites Host.
+CONDUCTOR_ALLOWED_ORIGINS = [
+    o.strip().rstrip("/") for o in os.environ.get("CONDUCTOR_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
+
 JOB_LOG_DIR = Path(os.environ.get("JOB_LOG_DIR", BASE_DIR / "job_logs"))
 # Finished jobs and their log files are deleted after this many days.
 JOB_RETENTION_DAYS = int(os.environ.get("JOB_RETENTION_DAYS", 5))

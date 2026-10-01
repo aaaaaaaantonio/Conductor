@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from app.credentials import credentials_middleware
 from app.db import init_db
 from app.models.jobs import Job
+from app.origin_check import origin_check_middleware
 from app.retention import purge_loop, run_purge
 from app.routers.agent_testing import router as agent_testing_router
 from app.routers.credentials import router as credentials_router
@@ -54,6 +55,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(title="Test Runner Bot", lifespan=lifespan)
     app.middleware("http")(credentials_middleware)
+    # Added last, so it runs first: a rejected request never reaches the app.
+    app.middleware("http")(origin_check_middleware)
     app.include_router(references_router)
     app.include_router(references_page_router)
     app.include_router(jobs_router)
