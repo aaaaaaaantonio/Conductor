@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 @dataclass
 class FlagSpec:
     name: str
     kind: Literal["bool", "value"]
-    default: Optional[str] = None
+    default: str | None = None
 
 
 @dataclass
@@ -15,14 +15,14 @@ class FieldSpec:
     flag_name: str
     type: Literal["text", "number", "select", "checkbox", "path"]
     required: bool
-    options: Optional[list[str]] = None
+    options: list[str] | None = None
 
 
 def build_command(
     path: str,
     fields: list[FieldSpec],
     values: dict[str, Any],
-    flags: Optional[list[FlagSpec]] = None,
+    flags: list[FlagSpec] | None = None,
 ) -> list[str]:
     """Fields come first, in form order. A flag sharing a field's name only
     supplies that field's default; every other flag is appended after the

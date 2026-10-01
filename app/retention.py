@@ -4,9 +4,8 @@ hourly (see app/main.py)."""
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from sqlmodel import Session, select
 
@@ -20,11 +19,11 @@ PURGE_INTERVAL = 3600
 logger = logging.getLogger(__name__)
 
 
-def purge_old_jobs(session: Session, log_dir: Path, now: Optional[datetime] = None) -> int:
+def purge_old_jobs(session: Session, log_dir: Path, now: datetime | None = None) -> int:
     """Delete finished jobs created before the retention cutoff and their
     logs, plus orphaned job-*.log files older than the cutoff. `now` is naive
     UTC, like the stored timestamps. Returns the number of jobs deleted."""
-    now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+    now = now or datetime.now(UTC).replace(tzinfo=None)
     cutoff = now - timedelta(days=JOB_RETENTION_DAYS)
 
     old = session.exec(
@@ -38,7 +37,7 @@ def purge_old_jobs(session: Session, log_dir: Path, now: Optional[datetime] = No
 
     if log_dir.is_dir():
         kept = {Path(p).resolve() for p in session.exec(select(Job.log_path)).all() if p}
-        cutoff_ts = cutoff.replace(tzinfo=timezone.utc).timestamp()
+        cutoff_ts = cutoff.replace(tzinfo=UTC).timestamp()
         for path in log_dir.glob("job-*.log"):
             if path.resolve() not in kept and path.stat().st_mtime < cutoff_ts:
                 path.unlink(missing_ok=True)

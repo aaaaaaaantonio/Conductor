@@ -1,9 +1,9 @@
 import asyncio
 import html
 import json
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Awaitable, Callable, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,11 +12,11 @@ from sqlmodel import Session, select
 
 from app.credentials import Credentials, get_credentials
 from app.db import get_session
-from app.templating import templates
 from app.execution.broadcaster import broadcaster
 from app.execution.jenkins_launch import LaunchResult, launch_in_jenkins
 from app.execution.runner import cancel_job
 from app.models.jobs import Job
+from app.templating import templates
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -63,7 +63,7 @@ async def jenkins_reply_response(
     job: Job,
     send: Callable[[Credentials], Awaitable[LaunchResult]],
     error_prefix: str,
-    restart_build: Optional[int] = None,
+    restart_build: int | None = None,
 ) -> HTMLResponse:
     """Run a Jenkins launch/restart hook with the user's tokens, record the
     outcome on `job` and render its reply card for the log-panel feed."""

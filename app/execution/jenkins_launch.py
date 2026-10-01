@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 import httpx
 
@@ -11,7 +10,7 @@ from app.execution.jenkins_client import trigger_build
 @dataclass
 class LaunchResult:
     message: str
-    url: Optional[str] = None
+    url: str | None = None
 
 
 async def launch_in_jenkins(

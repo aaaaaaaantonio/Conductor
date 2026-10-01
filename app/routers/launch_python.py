@@ -8,12 +8,12 @@ from sqlmodel import Session
 from app import config
 from app.config import JENKINS_JOB_NAMES, PYTHON_TEST_RUNNER_PATH
 from app.db import get_session
-from app.execution.jenkins_launch import restart_python
-from app.templating import templates
 from app.execution.command_builder import FieldSpec, build_command
+from app.execution.jenkins_launch import restart_python
 from app.execution.runner import start_local_job_with_own_session
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
+from app.templating import templates
 
 router = APIRouter(tags=["launch-python"])
 

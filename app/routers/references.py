@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.templating import templates
 from app.grouping import group_by
 from app.models.reference import (
     ReferenceItem,
@@ -16,6 +15,7 @@ from app.models.reference import (
     next_sort_order,
     sibling_references,
 )
+from app.templating import templates
 
 router = APIRouter(prefix="/api/references", tags=["references"])
 page_router = APIRouter(tags=["references-ui"])
@@ -35,7 +35,7 @@ class TeamStandLinkRequest(BaseModel):
 @router.get("", response_model=list[ReferenceItem])
 def list_reference_items(
     category: str,
-    parent_id: Optional[int] = None,
+    parent_id: int | None = None,
     session: Session = Depends(get_session),
 ) -> list[ReferenceItem]:
     return active_references(session, category, parent_id)
@@ -65,8 +65,8 @@ def create_reference_item(
 
 class ReferenceItemUpdateRequest(BaseModel):
     value: str
-    parent_id: Optional[int] = None
-    command: Optional[str] = None
+    parent_id: int | None = None
+    command: str | None = None
 
 
 @router.put("/{item_id}", response_model=ReferenceItem)
@@ -232,7 +232,7 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     test_names = [i for i in items if i.category == "test_name"]
     datasets = [i for i in items if i.category == "dataset"]
 
-    team_by_id: dict[Optional[int], ReferenceItem] = {t.id: t for t in teams}
+    team_by_id: dict[int | None, ReferenceItem] = {t.id: t for t in teams}
 
     links = list(session.exec(select(TeamStandLink)).all())
     stand_teams: dict[int, list[ReferenceItem]] = defaultdict(list)
@@ -247,7 +247,7 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     # bucketing it under an "orphan" placeholder instead of dropping it.
     tests_by_team_id = group_by(test_names, lambda tn: tn.parent_id)
     tests_by_team: list[tuple[ReferenceItem, list[ReferenceItem]]] = []
-    matched_team_ids: set[Optional[int]] = set()
+    matched_team_ids: set[int | None] = set()
     for team in teams:
         if team.id in tests_by_team_id:
             tests_by_team.append((team, tests_by_team_id[team.id]))
@@ -263,7 +263,7 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
 
     datasets_by_test_id = group_by(datasets, lambda ds: ds.parent_id)
     datasets_by_team: list[tuple[ReferenceItem, list[tuple[ReferenceItem, list[ReferenceItem]]]]] = []
-    matched_test_ids: set[Optional[int]] = set()
+    matched_test_ids: set[int | None] = set()
     for team, tests in tests_by_team:
         team_tests = [
             (tn, datasets_by_test_id[tn.id]) for tn in tests if tn.id in datasets_by_test_id

@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
@@ -8,13 +8,13 @@ from sqlmodel import Session, select
 
 from app import config
 from app.db import get_session
-from app.templating import templates
 from app.execution.command_builder import FieldSpec, FlagSpec, build_command
 from app.execution.runner import start_local_job_with_own_session
 from app.grouping import group_by
 from app.models.agent_testing import Agent, AgentTest
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
+from app.templating import templates
 
 router = APIRouter(tags=["agent-testing"])
 
@@ -34,7 +34,7 @@ class AgentRenameRequest(BaseModel):
 class FlagPayload(BaseModel):
     name: str
     kind: str
-    default: Optional[str] = None
+    default: str | None = None
 
 
 class FieldPayload(BaseModel):
@@ -42,7 +42,7 @@ class FieldPayload(BaseModel):
     flag_name: str
     type: str
     required: bool
-    options: Optional[list[str]] = None
+    options: list[str] | None = None
 
 
 class AgentTestPayload(BaseModel):

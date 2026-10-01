@@ -7,9 +7,9 @@ from sqlmodel import Session
 from app.config import JENKINS_JOB_NAMES
 from app.db import get_session
 from app.execution.jenkins_launch import restart_java
-from app.templating import templates
 from app.models.jobs import Job
 from app.models.reference import ReferenceItem, active_references
+from app.templating import templates
 
 router = APIRouter(tags=["launch-java"])
 

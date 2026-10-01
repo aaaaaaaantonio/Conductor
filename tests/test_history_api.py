@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.models.jobs import Job
 
@@ -9,7 +9,7 @@ def _job(session, source="python", status="success", created_at=None, **kw):
         source=source,
         status=status,
         params_json=kw.pop("params_json", "{}"),
-        created_at=created_at or datetime.now(timezone.utc),
+        created_at=created_at or datetime.now(UTC),
         **kw,
     )
     session.add(job)
@@ -32,7 +32,7 @@ def test_history_page_renders_filters_and_nav(client):
 
 
 def test_history_lists_finished_jobs_newest_first(client, session):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     older = _job(session, status="success", created_at=now - timedelta(hours=2))
     newer = _job(session, status="failed", created_at=now - timedelta(hours=1))
     running = _job(session, status="running", created_at=now)
@@ -61,8 +61,8 @@ def test_filter_by_status(client, session):
 def test_filter_by_date_range_in_server_local_time(client, session):
     local = datetime.now().astimezone()
     today_noon = local.replace(hour=12, minute=0, second=0, microsecond=0)
-    yesterday = _job(session, created_at=(today_noon - timedelta(days=1)).astimezone(timezone.utc))
-    today = _job(session, created_at=today_noon.astimezone(timezone.utc))
+    yesterday = _job(session, created_at=(today_noon - timedelta(days=1)).astimezone(UTC))
+    today = _job(session, created_at=today_noon.astimezone(UTC))
     d_today = today_noon.date().isoformat()
     d_yesterday = (today_noon - timedelta(days=1)).date().isoformat()
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
@@ -10,7 +10,7 @@ def localtime(value: datetime, fmt: str = "%d.%m %H:%M") -> str:
     """Stored timestamps are UTC (naive once read back from SQLite); show
     them in the server's local time."""
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return value.astimezone().strftime(fmt)
 
 

@@ -1,5 +1,4 @@
-from datetime import date, datetime, time, timedelta, timezone
-from typing import Optional
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -25,7 +24,7 @@ STATUSES = {
 MAX_ROWS = 500
 
 
-def _parse_date(value: Optional[str], name: str) -> Optional[date]:
+def _parse_date(value: str | None, name: str) -> date | None:
     if not value:
         return None
     try:
@@ -37,15 +36,15 @@ def _parse_date(value: Optional[str], name: str) -> Optional[date]:
 def _local_midnight_utc(day: date) -> datetime:
     """Start of `day` in the server's local time, as naive UTC like the DB."""
     local = datetime.combine(day, time.min).astimezone()
-    return local.astimezone(timezone.utc).replace(tzinfo=None)
+    return local.astimezone(UTC).replace(tzinfo=None)
 
 
 def _filtered_jobs(
     session: Session,
-    source: Optional[str],
-    status: Optional[str],
-    date_from: Optional[str],
-    date_to: Optional[str],
+    source: str | None,
+    status: str | None,
+    date_from: str | None,
+    date_to: str | None,
 ) -> list[Job]:
     statement = select(Job)
     if source in SOURCES:
@@ -76,10 +75,10 @@ def _context(jobs: list[Job], **filters) -> dict:
 @router.get("/history", response_class=HTMLResponse)
 def history_page(
     request: Request,
-    source: Optional[str] = None,
-    status: Optional[str] = None,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
+    source: str | None = None,
+    status: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
     jobs = _filtered_jobs(session, source, status, date_from, date_to)
@@ -93,10 +92,10 @@ def history_page(
 @router.get("/history/fragments/list", response_class=HTMLResponse)
 def history_list_fragment(
     request: Request,
-    source: Optional[str] = None,
-    status: Optional[str] = None,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
+    source: str | None = None,
+    status: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
     jobs = _filtered_jobs(session, source, status, date_from, date_to)

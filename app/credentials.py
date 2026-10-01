@@ -18,7 +18,6 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Optional
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -38,14 +37,14 @@ COOKIE_NAME = "conductor_creds"
 _CLOCK_SKEW = 60
 
 logger = logging.getLogger(__name__)
-_fernet_instance: Optional[Fernet] = None
+_fernet_instance: Fernet | None = None
 
 
 @dataclass(frozen=True)
 class Credentials:
     jenkins_user: str
     jenkins_token: str = field(repr=False)
-    allure_token: Optional[str] = field(default=None, repr=False)
+    allure_token: str | None = field(default=None, repr=False)
     remember: bool = False
     issued_at: int = 0
 
@@ -84,13 +83,13 @@ def _fernet() -> Fernet:
     return _fernet_instance
 
 
-def encode(creds: Credentials, now: Optional[int] = None) -> str:
+def encode(creds: Credentials, now: int | None = None) -> str:
     now = int(time.time()) if now is None else now
     payload = json.dumps(asdict(creds)).encode()
     return _fernet().encrypt_at_time(payload, now).decode()
 
 
-def decode(value: str, now: Optional[int] = None) -> Optional[Decoded]:
+def decode(value: str, now: int | None = None) -> Decoded | None:
     """The cookie's credentials, or None if it is forged, garbled or expired."""
     now = int(time.time()) if now is None else now
     try:
@@ -148,5 +147,5 @@ async def credentials_middleware(request: Request, call_next) -> Response:
     return response
 
 
-def get_credentials(request: Request) -> Optional[Credentials]:
+def get_credentials(request: Request) -> Credentials | None:
     return getattr(request.state, "credentials", None)

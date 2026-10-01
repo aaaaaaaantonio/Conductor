@@ -1,29 +1,28 @@
-from typing import Optional
 
 from sqlmodel import Field, Session, SQLModel, select
 
 
 class ReferenceItem(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     category: str = Field(index=True)
     value: str
     is_active: bool = Field(default=True)
     sort_order: int = Field(default=0)
-    parent_id: Optional[int] = Field(default=None, foreign_key="referenceitem.id")
-    command: Optional[str] = Field(default=None)
+    parent_id: int | None = Field(default=None, foreign_key="referenceitem.id")
+    command: str | None = Field(default=None)
 
 
 class TeamStandLink(SQLModel, table=True):
-    team_id: Optional[int] = Field(
+    team_id: int | None = Field(
         default=None, foreign_key="referenceitem.id", primary_key=True
     )
-    stand_id: Optional[int] = Field(
+    stand_id: int | None = Field(
         default=None, foreign_key="referenceitem.id", primary_key=True
     )
 
 
 def active_references(
-    session: Session, category: str, parent_id: Optional[int] = None
+    session: Session, category: str, parent_id: int | None = None
 ) -> list[ReferenceItem]:
     statement = select(ReferenceItem).where(
         ReferenceItem.category == category, ReferenceItem.is_active == True  # noqa: E712
@@ -35,7 +34,7 @@ def active_references(
 
 
 def sibling_references(
-    session: Session, category: str, parent_id: Optional[int]
+    session: Session, category: str, parent_id: int | None
 ) -> list[ReferenceItem]:
     """Active items sharing a category and parent, in display order.
 
@@ -54,6 +53,6 @@ def sibling_references(
     return list(session.exec(statement).all())
 
 
-def next_sort_order(session: Session, category: str, parent_id: Optional[int]) -> int:
+def next_sort_order(session: Session, category: str, parent_id: int | None) -> int:
     siblings = sibling_references(session, category, parent_id)
     return max((s.sort_order for s in siblings), default=-1) + 1

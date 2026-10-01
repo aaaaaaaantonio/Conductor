@@ -10,16 +10,16 @@ from sqlmodel import Session, select
 
 from app.credentials import credentials_middleware
 from app.db import init_db
-from app.retention import purge_loop, run_purge
 from app.models.jobs import Job
-from app.routers.references import router as references_router
-from app.routers.references import page_router as references_page_router
-from app.routers.jobs import router as jobs_router
+from app.retention import purge_loop, run_purge
 from app.routers.agent_testing import router as agent_testing_router
-from app.routers.launch_python import router as launch_python_router
-from app.routers.launch_java import router as launch_java_router
 from app.routers.credentials import router as credentials_router
 from app.routers.history import router as history_router
+from app.routers.jobs import router as jobs_router
+from app.routers.launch_java import router as launch_java_router
+from app.routers.launch_python import router as launch_python_router
+from app.routers.references import page_router as references_page_router
+from app.routers.references import router as references_router
 
 
 def recover_stale_jobs(session: Session) -> None:
