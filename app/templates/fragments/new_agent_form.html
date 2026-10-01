@@ -1,6 +1,8 @@
 {% if agent %}
+<span class="modal-eyebrow" id="modal-eyebrow" hx-swap-oob="true">Изменение агента</span>
 <div class="modal-test-path">Агент — {{ agent.name }}</div>
 {% else %}
+<span class="modal-eyebrow" id="modal-eyebrow" hx-swap-oob="true">Новый агент</span>
 <div class="modal-test-path">Новый агент — {{ team.value }}</div>
 {% endif %}
 

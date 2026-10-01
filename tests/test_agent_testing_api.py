@@ -396,3 +396,20 @@ def test_card_delete_button_is_not_caught_by_agent_delete_handler(client):
     test = _agent_test(client, agent["id"])
     html = client.get(f"/agent-testing/tests/{test['id']}/fragments/card").text
     assert "tree-agent-del" not in html
+
+
+def test_modal_fragments_set_their_own_eyebrow(client):
+    team, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"])
+    page = client.get("/agent-testing").text
+    assert 'id="modal-eyebrow"' in page
+    expected = {
+        f"/agent-testing/tests/{test['id']}/fragments/card": "Запуск теста",
+        f"/agent-testing/tests/{test['id']}/fragments/edit": "Изменение теста",
+        f"/agent-testing/agents/{agent['id']}/fragments/new-test": "Новый тест",
+        f"/agent-testing/agents/{agent['id']}/fragments/edit": "Изменение агента",
+        f"/agent-testing/teams/{team['id']}/fragments/new-agent": "Новый агент",
+    }
+    for url, eyebrow in expected.items():
+        html = client.get(url).text
+        assert f'<span class="modal-eyebrow" id="modal-eyebrow" hx-swap-oob="true">{eyebrow}</span>' in html, url

@@ -1,6 +1,8 @@
 {% if test %}
+<span class="modal-eyebrow" id="modal-eyebrow" hx-swap-oob="true">Изменение теста</span>
 <div class="modal-test-path">Тест — {{ agent.name }}</div>
 {% else %}
+<span class="modal-eyebrow" id="modal-eyebrow" hx-swap-oob="true">Новый тест</span>
 <div class="modal-test-path">Новый тест — {{ agent.name }}</div>
 {% endif %}
 
@@ -29,19 +31,18 @@
 
   function addRow(data) {
     var row = document.createElement("div");
-    row.className = "field-row";
-    row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:8px";
+    row.className = "def-row field-row";
     row.innerHTML =
-      '<input type="text" placeholder="Метка" class="f-label" style="flex:2">' +
-      '<input type="text" placeholder="--flag" class="f-flag" style="flex:2">' +
-      '<select class="f-type" style="flex:1">' +
+      '<input type="text" placeholder="Метка" class="def-input def-wide f-label">' +
+      '<input type="text" placeholder="--flag" class="def-input def-wide f-flag">' +
+      '<select class="def-input f-type">' +
         '<option value="text">text</option>' +
         '<option value="number">number</option>' +
         '<option value="checkbox">checkbox</option>' +
       '</select>' +
-      '<label style="display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:.8rem">' +
+      '<label class="def-check">' +
         '<input type="checkbox" class="f-required">обяз.</label>' +
-      '<button type="button" class="btn-secondary remove-row" style="width:auto">✕</button>';
+      '<button type="button" class="btn-secondary def-remove remove-row">✕</button>';
     if (data) {
       row.querySelector(".f-label").value = data.label || "";
       row.querySelector(".f-flag").value = data.flag_name || "";
@@ -65,16 +66,15 @@
 
   function addFlagRow(data) {
     var row = document.createElement("div");
-    row.className = "flag-row";
-    row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:8px";
+    row.className = "def-row flag-row";
     row.innerHTML =
-      '<input type="text" placeholder="--flag" class="fl-name" style="flex:2">' +
-      '<select class="fl-kind" style="flex:1">' +
+      '<input type="text" placeholder="--flag" class="def-input def-wide fl-name">' +
+      '<select class="def-input fl-kind">' +
         '<option value="bool">без значения</option>' +
         '<option value="value">со значением</option>' +
       '</select>' +
-      '<input type="text" placeholder="значение" class="fl-default" style="flex:2" disabled>' +
-      '<button type="button" class="btn-secondary remove-flag" style="width:auto">✕</button>';
+      '<input type="text" placeholder="значение" class="def-input def-wide fl-default" disabled>' +
+      '<button type="button" class="btn-secondary def-remove remove-flag">✕</button>';
     if (data) {
       row.querySelector(".fl-name").value = data.name || "";
       row.querySelector(".fl-kind").value = data.kind === "value" ? "value" : "bool";

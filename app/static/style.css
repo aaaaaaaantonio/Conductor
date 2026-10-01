@@ -321,6 +321,15 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .modal-close{border:none; background:transparent; color:var(--ink-faint); font-size:1rem; cursor:pointer; padding:4px; border-radius:6px; line-height:1}
 .modal-close:hover{background:var(--page); color:var(--ink)}
 .modal-body{padding:18px 20px; overflow-y:auto}
+/* Parameter/flag definition rows in the test form: the text inputs share a
+   line and the small controls wrap below them when the modal is narrow. */
+.def-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px}
+.def-input{min-width:0; padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:var(--field); color:var(--ink); font-size:13px}
+.def-input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.def-input:disabled{opacity:.5}
+.def-wide{flex:1 1 120px}
+.def-check{display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:.8rem; color:var(--ink-soft)}
+.def-row .def-remove{width:auto; margin-left:auto; padding:6px 10px}
 .modal-foot{display:flex; justify-content:flex-end; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line)}
 
 .modal-test-path{font-family:var(--mono); font-size:.85rem; color:var(--ink-soft); margin-bottom:16px; word-break:break-all}
