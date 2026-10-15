@@ -731,3 +731,16 @@ def test_log_head_and_lists_show_duration(client, session, tmp_path):
     # Active jobs tick in the browser from their start time.
     listing = client.get("/jobs/fragments/list").text
     assert 'data-started="2026-10-15T12:00:00+00:00"' in listing
+
+
+def test_error_filter_is_linear_on_huge_lines():
+    # Regression: `\w+(error|exception)` backtracked quadratically, so one
+    # long word-only line stalled the "только ошибки" filter for minutes.
+    import time as _time
+
+    from app.execution.log_lines import matches
+
+    start = _time.perf_counter()
+    assert not matches("a" * 200_000, "", True)
+    assert matches("x" * 200_000 + "ValueError", "", True)
+    assert _time.perf_counter() - start < 0.5

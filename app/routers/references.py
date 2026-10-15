@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, BeforeValidator, StringConstraints
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -199,9 +199,14 @@ def unlink_team_stand(
     return Response(status_code=204)
 
 
+# The selected option of the select above; empty when that select has no
+# options (no teams yet, a team without tests), which means "no options here".
+ParentId = Annotated[int | None, BeforeValidator(lambda v: None if v == "" else v)]
+
+
 @router.get("/fragments/stands", response_class=HTMLResponse)
 def stand_options_fragment(
-    request: Request, team_id: int, session: Session = Depends(get_session)
+    request: Request, team_id: ParentId = None, session: Session = Depends(get_session)
 ) -> HTMLResponse:
     statement = (
         select(ReferenceItem)
@@ -213,7 +218,7 @@ def stand_options_fragment(
         )
         .order_by(ReferenceItem.sort_order, ReferenceItem.value)
     )
-    stands = list(session.exec(statement).all())
+    stands = list(session.exec(statement).all()) if team_id is not None else []
     return templates.TemplateResponse(
         request, "fragments/stand_options.html", {"stands": stands}
     )
@@ -221,7 +226,7 @@ def stand_options_fragment(
 
 @router.get("/fragments/test-names", response_class=HTMLResponse)
 def test_name_options_fragment(
-    request: Request, team_id: int, session: Session = Depends(get_session)
+    request: Request, team_id: ParentId = None, session: Session = Depends(get_session)
 ) -> HTMLResponse:
     statement = (
         select(ReferenceItem)
@@ -232,7 +237,7 @@ def test_name_options_fragment(
         )
         .order_by(ReferenceItem.sort_order, ReferenceItem.value)
     )
-    test_names = list(session.exec(statement).all())
+    test_names = list(session.exec(statement).all()) if team_id is not None else []
     return templates.TemplateResponse(
         request, "fragments/test_name_options.html", {"test_names": test_names}
     )
@@ -240,7 +245,7 @@ def test_name_options_fragment(
 
 @router.get("/fragments/datasets", response_class=HTMLResponse)
 def dataset_options_fragment(
-    request: Request, test_name_id: int, session: Session = Depends(get_session)
+    request: Request, test_name_id: ParentId = None, session: Session = Depends(get_session)
 ) -> HTMLResponse:
     statement = (
         select(ReferenceItem)
@@ -251,7 +256,7 @@ def dataset_options_fragment(
         )
         .order_by(ReferenceItem.sort_order, ReferenceItem.value)
     )
-    datasets = list(session.exec(statement).all())
+    datasets = list(session.exec(statement).all()) if test_name_id is not None else []
     return templates.TemplateResponse(
         request, "fragments/dataset_options.html", {"datasets": datasets}
     )

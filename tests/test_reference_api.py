@@ -373,3 +373,23 @@ def test_sqlite_enforces_foreign_keys(session):
     from sqlalchemy import text
 
     assert session.exec(text("PRAGMA foreign_keys")).one()[0] == 1
+
+
+@pytest.mark.parametrize(
+    "path, param",
+    [
+        ("/api/references/fragments/stands", "team_id"),
+        ("/api/references/fragments/test-names", "team_id"),
+        ("/api/references/fragments/datasets", "test_name_id"),
+    ],
+)
+def test_option_fragments_accept_empty_parent(client, path, param):
+    # A dependent select asks with an empty parent when the one above it has
+    # no options (no teams yet, a team without tests): no options, not a 422.
+    resp = client.get(path, params={param: ""})
+    assert resp.status_code == 200
+    assert "<option" not in resp.text
+
+
+def test_option_fragments_still_reject_garbage_parent(client):
+    assert client.get("/api/references/fragments/datasets", params={"test_name_id": "abc"}).status_code == 422

@@ -180,7 +180,7 @@
   }
 
   // Same pattern as ERROR_PATTERN in app/execution/log_lines.py.
-  var ERROR_PATTERN = /\b(error|fail|failed|failure|fatal|critical|traceback)\b|\w+(error|exception)\b/i;
+  var ERROR_PATTERN = /\b(error|fail|failed|failure|fatal|critical|traceback)\b|(?<=\w)(error|exception)\b/i;
 
   function lineMatches(text, query, errorsOnly) {
     if (query && text.toLowerCase().indexOf(query.toLowerCase()) < 0) return false;

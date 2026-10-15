@@ -12,7 +12,9 @@ MIN_MASKED_LENGTH = 4
 # The log panel's "только ошибки" filter. app.js has the same pattern for
 # live lines (ERROR_PATTERN there) — keep them in sync.
 ERROR_PATTERN = re.compile(
-    r"\b(error|fail|failed|failure|fatal|critical|traceback)\b|\w+(error|exception)\b", re.IGNORECASE
+    # "(?<=\w)" rather than "\w+" before error/exception: a leading \w+
+    # backtracks quadratically on long word-only lines (ReDoS).
+    r"\b(error|fail|failed|failure|fatal|critical|traceback)\b|(?<=\w)(error|exception)\b", re.IGNORECASE
 )
 
 
