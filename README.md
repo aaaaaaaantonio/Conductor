@@ -28,8 +28,8 @@ cp run-python-tests.example.sh run-python-tests.sh
 ### Запуск в фоне (nohup)
 
 ```bash
-export CONDUCTOR_SECRET_KEY='любая-строка'   # ключ лучше не писать в саму команду: он виден в ps
-nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5 > conductor.log 2>&1 &
+cp .env.example .env   # один раз: впишите CONDUCTOR_SECRET_KEY и нужные переменные
+nohup uv run --env-file .env uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5 > conductor.log 2>&1 &
 echo $! > conductor.pid
 ```
 
