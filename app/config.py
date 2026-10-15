@@ -5,6 +5,21 @@ from pathlib import Path
 # the directory Conductor is started from.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def _int_env(name: str, default: int, minimum: int = 1) -> int:
+    # A typo here would otherwise surface as a bare int() traceback at import.
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be an integer >= {minimum}, got {raw!r}") from None
+    if value < minimum:
+        raise ValueError(f"{name} must be an integer >= {minimum}, got {raw!r}")
+    return value
+
+
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'test_runner.db'}")
 
 JENKINS_BASE_URL = os.environ.get("JENKINS_BASE_URL", "http://localhost:8080")
@@ -28,13 +43,13 @@ CONDUCTOR_SECRET_KEY = os.environ.get("CONDUCTOR_SECRET_KEY", "")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
 # Sliding idle windows, in seconds: every request re-issues the cookie, so
 # tokens expire only after this long without using Conductor.
-CREDS_SESSION_IDLE_TTL = int(os.environ.get("CREDS_SESSION_IDLE_TTL", 12 * 3600))
-CREDS_REMEMBER_IDLE_TTL = int(os.environ.get("CREDS_REMEMBER_IDLE_TTL", 30 * 86400))
+CREDS_SESSION_IDLE_TTL = _int_env("CREDS_SESSION_IDLE_TTL", 12 * 3600)
+CREDS_REMEMBER_IDLE_TTL = _int_env("CREDS_REMEMBER_IDLE_TTL", 30 * 86400)
 # Re-issue the cookie at most this often, not on every single request.
-CREDS_REFRESH_AFTER = int(os.environ.get("CREDS_REFRESH_AFTER", 60))
+CREDS_REFRESH_AFTER = _int_env("CREDS_REFRESH_AFTER", 60, minimum=0)
 # Hard cap since the tokens were entered, however active the user is.
 # 10 years by default — effectively "never" while still bounded.
-CREDS_MAX_LIFETIME = int(os.environ.get("CREDS_MAX_LIFETIME", 10 * 365 * 86400))
+CREDS_MAX_LIFETIME = _int_env("CREDS_MAX_LIFETIME", 10 * 365 * 86400)
 
 # Browser-side Origin values accepted on POST/PUT/PATCH/DELETE, comma
 # separated (e.g. "https://conductor.company.ru"). Empty: the request's own
@@ -45,9 +60,9 @@ CONDUCTOR_ALLOWED_ORIGINS = [
 
 JOB_LOG_DIR = Path(os.environ.get("JOB_LOG_DIR", BASE_DIR / "job_logs"))
 # Finished jobs and their log files are deleted after this many days.
-JOB_RETENTION_DAYS = int(os.environ.get("JOB_RETENTION_DAYS", 5))
+JOB_RETENTION_DAYS = _int_env("JOB_RETENTION_DAYS", 5)
 # The log panel shows this many last lines; the full log is downloadable.
-LOG_TAIL_LINES = int(os.environ.get("LOG_TAIL_LINES", 200))
+LOG_TAIL_LINES = _int_env("LOG_TAIL_LINES", 200)
 # Longer lines are shown in the browser by their last this-many characters;
 # the log file keeps them whole.
-LOG_LINE_MAX_CHARS = int(os.environ.get("LOG_LINE_MAX_CHARS", 5000))
+LOG_LINE_MAX_CHARS = _int_env("LOG_LINE_MAX_CHARS", 5000)

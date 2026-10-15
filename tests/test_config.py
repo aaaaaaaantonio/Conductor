@@ -72,3 +72,42 @@ def test_pages_render_when_started_outside_project_dir(client, monkeypatch, tmp_
     monkeypatch.chdir(tmp_path)
     assert client.get("/references").status_code == 200
     assert client.get("/static/app.js").status_code == 200
+
+
+INT_SETTINGS = [
+    "CREDS_SESSION_IDLE_TTL",
+    "CREDS_REMEMBER_IDLE_TTL",
+    "CREDS_MAX_LIFETIME",
+    "JOB_RETENTION_DAYS",
+    "LOG_TAIL_LINES",
+    "LOG_LINE_MAX_CHARS",
+]
+
+
+@pytest.mark.parametrize("name", INT_SETTINGS + ["CREDS_REFRESH_AFTER"])
+def test_non_integer_setting_names_the_variable(reload_config, monkeypatch, name):
+    monkeypatch.setenv(name, "5d")
+    with pytest.raises(ValueError, match=rf"{name}.*'5d'"):
+        reload_config()
+
+
+@pytest.mark.parametrize("name", INT_SETTINGS)
+def test_positive_settings_reject_zero(reload_config, monkeypatch, name):
+    monkeypatch.setenv(name, "0")
+    with pytest.raises(ValueError, match=rf"{name}.*>= 1"):
+        reload_config()
+
+
+def test_refresh_after_allows_zero_but_not_negative(reload_config, monkeypatch):
+    monkeypatch.setenv("CREDS_REFRESH_AFTER", "0")
+    reload_config()
+    assert config.CREDS_REFRESH_AFTER == 0
+    monkeypatch.setenv("CREDS_REFRESH_AFTER", "-1")
+    with pytest.raises(ValueError, match=r"CREDS_REFRESH_AFTER.*>= 0"):
+        reload_config()
+
+
+def test_integer_settings_tolerate_surrounding_spaces(reload_config, monkeypatch):
+    monkeypatch.setenv("LOG_TAIL_LINES", " 50 ")
+    reload_config()
+    assert config.LOG_TAIL_LINES == 50
