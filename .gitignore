@@ -6,3 +6,4 @@ job_logs/
 .venv/
 *.log
 .coverage
+conductor.pid
