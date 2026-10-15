@@ -187,9 +187,11 @@ def job_log_fragment(
     lines: deque[tuple[int, str]] = deque(maxlen=config.LOG_TAIL_LINES)
     total = matched = 0
     if job is not None and job.log_path is not None and Path(job.log_path).exists():
-        with Path(job.log_path).open() as log_file:
+        # newline="\n": split like the runner numbers live lines, so a "\r"
+        # inside a line (progress bars) doesn't shift the numbers.
+        with Path(job.log_path).open(newline="\n") as log_file:
             for total, line in enumerate(log_file, 1):
-                text = line.rstrip("\n")
+                text = line.rstrip("\n").replace("\r", "")  # as the live stream shows it
                 if filtered and not matches(text, q, errors):
                     continue
                 matched += 1

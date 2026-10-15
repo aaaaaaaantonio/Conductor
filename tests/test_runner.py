@@ -363,3 +363,28 @@ async def test_final_status_event_carries_source_and_duration(tmp_path, session)
     assert final["status"] == "success"
     assert final["source"] == "agent_test"
     assert final["duration"] in (1, 2)
+
+
+@pytest.mark.asyncio
+async def test_server_shutdown_kills_job_and_marks_it_failed(tmp_path: Path, session: Session):
+    # Shutdown cancels the runner task. The test runs in its own process
+    # group, so without an explicit kill it outlives Conductor.
+    import os
+
+    from app.execution import runner
+
+    job = _queued_job(session)
+    command = ["python3", "-u", "-c", "import time; print('started'); time.sleep(30)"]
+    task = asyncio.create_task(runner.start_local_job(job.id, command, tmp_path, session, EventBroadcaster()))
+    await _wait_until(lambda: (tmp_path / f"job-{job.id}.log").exists()
+                      and "started" in (tmp_path / f"job-{job.id}.log").read_text())
+    pid = runner._processes[job.id].pid
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=5)
+
+    session.refresh(job)
+    assert job.status == "failed"
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)

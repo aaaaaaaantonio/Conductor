@@ -786,3 +786,18 @@ def test_python_launch_with_empty_select_is_refused_readably(client, session, fi
     assert resp.headers["HX-Retarget"] == "#job-log-body"
     assert message in resp.text
     assert session.exec(select(Job)).all() == []
+
+
+def test_log_fragment_numbers_lines_like_the_live_log(client, session, tmp_path):
+    # Progress bars print "\r" inside a line; the runner numbers lines by
+    # "\n" only, so reopening the log must not split on "\r".
+    log_file = tmp_path / "job-cr.log"
+    log_file.write_bytes(b"10%\r50%\r100%\ndone\n")
+    job = Job(source="python", status="success", params_json="{}", log_path=str(log_file))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    text = client.get(f"/jobs/{job.id}/fragments/log").text
+
+    assert '<span class="ln">2</span>done' in text

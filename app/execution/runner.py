@@ -134,6 +134,14 @@ async def _run_local_job(
                 job.status = "cancelled"
             else:
                 job.status = "success" if return_code == 0 else "failed"
+    except asyncio.CancelledError:
+        # Server shutdown. The process has its own group, so it would
+        # outlive Conductor and keep running unseen; stop it with us.
+        job.status = "failed"
+        if process is not None:
+            _kill(process)
+            await process.wait()
+        raise
     except Exception as exc:
         # Whatever went wrong, the job must still land in a terminal state
         # with a broadcast — otherwise any UI waiting on job-status hangs

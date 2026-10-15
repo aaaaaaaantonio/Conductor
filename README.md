@@ -10,8 +10,10 @@
 
 ```bash
 uv sync
-uv run uvicorn app.main:app
+uv run uvicorn app.main:app --timeout-graceful-shutdown 5
 ```
+
+`--timeout-graceful-shutdown 5` нужен для остановки: каждая открытая вкладка Conductor держит поток live-обновлений, и без таймаута uvicorn ждёт их закрытия бесконечно.
 
 Запускайте ровно **один** worker uvicorn (без `--workers N`): запущенные на VM процессы, кнопка «Остановить» и живой лог держатся в памяти процесса, а при старте каждый worker помечал бы чужие активные запуски как упавшие.
 
@@ -27,7 +29,7 @@ cp run-python-tests.example.sh run-python-tests.sh
 
 ```bash
 export CONDUCTOR_SECRET_KEY='любая-строка'   # ключ лучше не писать в саму команду: он виден в ps
-nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > conductor.log 2>&1 &
+nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5 > conductor.log 2>&1 &
 echo $! > conductor.pid
 ```
 
@@ -37,7 +39,7 @@ echo $! > conductor.pid
 kill "$(cat conductor.pid)" && rm conductor.pid
 ```
 
-Запуски на VM, которые шли в момент остановки, при следующем старте помечаются как «Ошибка».
+Запуски на VM, которые шли в момент остановки, останавливаются вместе с сервером и помечаются как «Ошибка».
 
 ## Переменные окружения
 
