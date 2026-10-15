@@ -18,6 +18,8 @@
       <span class="dot {{ status_class(job.status) }}"></span>
       <span class="job-name">job #{{ job.id }} · {{ sources.get(job.source, job.source) }}</span>
       <span class="hist-time">{{ job.created_at | localtime }}</span>
+      {% set dur = job_duration(job) %}
+      <span class="job-dur" title="Длительность"{% if dur is not none and job.status in ('queued', 'running') %} data-started="{{ job.created_at | utc_iso }}"{% endif %}>{{ dur | duration }}</span>
       <span class="job-status">{{ statuses.get(job.status, job.status) }}</span>
     </button>
   {% endfor %}

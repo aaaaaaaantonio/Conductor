@@ -48,8 +48,11 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .sb-item:focus-visible, .sb-brand:focus-visible{outline:2px solid var(--side-accent); outline-offset:-2px}
 .sb-item svg{width:19px; height:19px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
 .sb-label{overflow:hidden; text-overflow:ellipsis}
-.sb-sse{margin-top:auto; display:flex; align-items:center; gap:9px; padding:10px 12px; color:#8a9994; font-size:12px}
+.sb-sse{display:flex; align-items:center; gap:9px; padding:10px 12px; color:#8a9994; font-size:12px}
 .sb-sse[hidden]{display:none}
+/* notification settings toggle: a nav-style button pinned to the bottom */
+.sb-notify{margin-top:auto; border:0; background:transparent; width:100%; cursor:pointer; text-align:left}
+.sb-notify[aria-expanded="true"]{background:var(--side-active); color:#fff}
 .sb-sse-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--side-accent); box-shadow:0 0 0 3px rgba(95,183,154,.2)}
 .sb-sse.down .sb-sse-dot{background:var(--term-fail); box-shadow:0 0 0 3px rgba(239,138,112,.2)}
 .sb-sse.down{color:var(--term-fail)}
@@ -70,7 +73,9 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
   .sb-item.active{box-shadow:inset 0 -2px 0 var(--side-accent)}
   /* icons only, except the current page, so the bar fits a phone */
   .sb-item:not(.active) .sb-label{display:none}
-  .sb-sse{margin:0 0 0 auto; padding:0 6px}
+  .sb-notify{margin:0 0 0 auto; width:auto}
+  .sb-notify .sb-label{display:none}
+  .sb-sse{margin:0; padding:0 6px}
   .sb-sse .sb-label{display:none}
   .main{padding:16px 14px 24px}
   .panel.log-panel{min-height:280px}
@@ -405,3 +410,43 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .log-stop:hover{background:rgba(239,138,112,.12)}
 .log-stop:focus-visible{outline:2px solid var(--term-fail); outline-offset:2px}
 .log-stop.htmx-request{opacity:.6; cursor:progress}
+
+/* ---------- job durations ---------- */
+.job-dur{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); flex-shrink:0; font-variant-numeric:tabular-nums}
+.job-dur:empty{display:none}
+.log-head .job-dur{margin-left:auto; color:var(--term-faint)}
+.log-head .job-dur + .job-id{margin-left:0}
+
+/* ---------- log search ---------- */
+.log-search{display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--term-line); flex-wrap:wrap}
+.log-search input[type="search"]{
+  flex:1; min-width:160px; background:var(--term-line); color:var(--term-ink); border:1px solid transparent;
+  border-radius:7px; padding:6px 10px; font-family:var(--mono); font-size:12.5px;
+}
+.log-search input[type="search"]::placeholder{color:var(--term-faint)}
+.log-search input[type="search"]:focus{outline:none; border-color:var(--side-accent)}
+.log-errors{display:flex; align-items:center; gap:6px; color:var(--term-ink); font-size:12.5px; cursor:pointer; white-space:nowrap}
+.log-errors input{accent-color:var(--term-fail); width:15px; height:15px; margin:0}
+.log mark{background:rgba(224,184,79,.32); color:#fff; border-radius:2px; padding:0 1px}
+.log .log-found{color:var(--term-ink); font-weight:600}
+
+/* ---------- notification settings ---------- */
+.notify-panel{
+  position:fixed; left:268px; bottom:16px; z-index:60; width:min(340px, calc(100vw - 32px));
+  background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px; box-shadow:0 12px 32px rgba(16,24,20,.18);
+}
+.notify-panel[hidden]{display:none}
+.notify-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px}
+.notify-close{border:0; background:transparent; color:var(--ink-faint); font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px}
+.notify-close:hover{color:var(--ink); background:var(--page)}
+.notify-intro{margin:0 0 14px; color:var(--ink-faint); font-size:12.5px}
+.notify-sound-row{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.notify-sound-row select{grid-column:1 / -1; width:100%}
+.notify-sound-row .btn-secondary{padding:6px 10px; font-size:12.5px; white-space:nowrap}
+.notify-hint{margin:-2px 0 10px; padding:8px 10px; border-radius:8px; font-size:12.5px; background:var(--status-run-bg); color:var(--status-run)}
+.notify-hint[hidden]{display:none}
+.notify-test{width:100%; margin-top:4px}
+@media (max-width:760px){
+  .notify-panel{left:16px; right:16px; width:auto; top:60px; bottom:auto; max-height:calc(100vh - 76px); overflow-y:auto}
+}

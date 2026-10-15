@@ -9,7 +9,7 @@ from app import config
 from app.execution.broadcaster import EventBroadcaster
 from app.execution.broadcaster import broadcaster as default_broadcaster
 from app.execution.log_lines import for_display, mask, read_lines
-from app.models.jobs import Job
+from app.models.jobs import Job, duration_seconds
 
 CANCELLED_LOG_LINE = "— Остановлено пользователем —"
 
@@ -110,19 +110,26 @@ async def _run_local_job(
             assert process.stdout is not None
             # The users' tokens are passed in env; keep them out of the log.
             secrets = list(env.values()) if env else []
+            line_number = 0
             async for raw_line in read_lines(process.stdout):
                 line = mask(raw_line, secrets)
                 log_file.write(line + "\n")
                 log_file.flush()
+                line_number += 1
                 await broadcaster.publish(
-                    {"type": "log-line", "job_id": job_id, "line": for_display(line, config.LOG_LINE_MAX_CHARS)}
+                    {
+                        "type": "log-line",
+                        "job_id": job_id,
+                        "n": line_number,
+                        "line": for_display(line, config.LOG_LINE_MAX_CHARS),
+                    }
                 )
 
             return_code = await process.wait()
             if job_id in _cancel_requested:
                 log_file.write(CANCELLED_LOG_LINE + "\n")
                 await broadcaster.publish(
-                    {"type": "log-line", "job_id": job_id, "line": CANCELLED_LOG_LINE}
+                    {"type": "log-line", "job_id": job_id, "n": line_number + 1, "line": CANCELLED_LOG_LINE}
                 )
                 job.status = "cancelled"
             else:
@@ -152,7 +159,18 @@ async def _run_local_job(
         _cancel_requested.discard(job_id)
         session.add(job)
         session.commit()
-        await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": job.status})
+        session.refresh(job)
+        # Source and duration let the browser say what finished in its
+        # notification.
+        await broadcaster.publish(
+            {
+                "type": "job-status",
+                "job_id": job_id,
+                "status": job.status,
+                "source": job.source,
+                "duration": duration_seconds(job),
+            }
+        )
 
 
 async def start_local_job_with_own_session(

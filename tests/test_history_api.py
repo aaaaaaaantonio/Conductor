@@ -1,6 +1,8 @@
 import re
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from app.models.jobs import Job
 
 
@@ -126,3 +128,13 @@ def test_history_list_refreshes_on_job_status_with_filters(client):
     resp = client.get("/history")
     assert 'hx-trigger="change, sse:job-status"' in resp.text
     assert 'sse-connect="/jobs/stream"' in resp.text
+
+
+@pytest.mark.parametrize("path", ["/python", "/java", "/agent-testing", "/history", "/references", "/credentials"])
+def test_every_page_streams_events_and_offers_notifications(client, path):
+    # Finished-job notifications (static/notify.js) work from any page.
+    text = client.get(path).text
+    assert text.count('sse-connect="/jobs/stream"') == 1
+    assert 'id="notify-panel"' in text
+    assert '/static/notify.js' in text
+    assert 'id="favicon"' in text

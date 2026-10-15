@@ -27,13 +27,20 @@
     }
   }
 
+  // Free-text inputs worth restoring; never passwords, files or hidden ones.
+  var REMEMBERED_INPUT_TYPES = ["text", "number", "search"];
+
   function saveRemembered(form) {
     var values = {};
     Array.prototype.forEach.call(form.elements, function (el) {
       if (!el.name) return;
       if (el.type === "radio") {
         if (el.checked) values[el.name] = el.value;
-      } else if (el.tagName === "SELECT" && el.value !== "") {
+      } else if (el.type === "checkbox") {
+        values[el.name] = el.checked;
+      } else if (el.tagName === "SELECT") {
+        if (el.value !== "") values[el.name] = el.value;
+      } else if (el.tagName === "INPUT" && REMEMBERED_INPUT_TYPES.indexOf(el.type) >= 0) {
         values[el.name] = el.value;
       }
     });
@@ -49,6 +56,16 @@
     if (el.type === "radio") {
       if (el.value !== value || el.checked) return false;
       el.checked = true;
+      return true;
+    }
+    if (el.type === "checkbox") {
+      if (el.checked === Boolean(value)) return false;
+      el.checked = Boolean(value);
+      return true;
+    }
+    if (el.tagName === "INPUT") {
+      if (REMEMBERED_INPUT_TYPES.indexOf(el.type) < 0 || el.value === value) return false;
+      el.value = value;
       return true;
     }
     if (el.value === value) return false;
@@ -151,9 +168,63 @@
     dot.classList.remove("run", "ok", "fail");
     if (STATUS_CLASSES[event.status]) dot.classList.add(STATUS_CLASSES[event.status]);
     head.querySelector(".job-id").textContent = event.status;
+    var dur = head.querySelector(".job-dur");
+    if (dur && event.status !== "queued" && event.status !== "running") {
+      dur.removeAttribute("data-started");
+      if (event.duration !== null && event.duration !== undefined) {
+        dur.textContent = formatDuration(event.duration);
+      }
+    }
     var stop = head.querySelector(".log-stop");
     if (stop && event.status !== "queued" && event.status !== "running") stop.remove();
   }
+
+  // Same pattern as ERROR_PATTERN in app/execution/log_lines.py.
+  var ERROR_PATTERN = /\b(error|fail|failed|failure|fatal|critical|traceback)\b|\w+(error|exception)\b/i;
+
+  function lineMatches(text, query, errorsOnly) {
+    if (query && text.toLowerCase().indexOf(query.toLowerCase()) < 0) return false;
+    return !errorsOnly || ERROR_PATTERN.test(text);
+  }
+
+  // Rebuild a live line with the matches wrapped in <mark>, from text nodes
+  // only, like highlight() does on the server.
+  function highlightInto(el, text, query, errorsOnly) {
+    var re = query
+      ? new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi")
+      : new RegExp(ERROR_PATTERN.source, "gi");
+    var pos = 0;
+    var m;
+    el.textContent = "";
+    while ((m = re.exec(text)) !== null) {
+      if (!m[0]) { re.lastIndex++; continue; }
+      el.appendChild(document.createTextNode(text.slice(pos, m.index)));
+      var mark = document.createElement("mark");
+      mark.textContent = m[0];
+      el.appendChild(mark);
+      pos = m.index + m[0].length;
+    }
+    el.appendChild(document.createTextNode(text.slice(pos)));
+  }
+
+  // 0:37, 4:12, 1:02:03 — same as the "duration" template filter. Also used
+  // by notify.js.
+  function formatDuration(seconds) {
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    var s = seconds % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(s).padStart(2, "0");
+  }
+  window.conductorFormatDuration = formatDuration;
+
+  // Active jobs' durations tick from their start (data-started, UTC ISO).
+  setInterval(function () {
+    var now = Date.now();
+    document.querySelectorAll(".job-dur[data-started]").forEach(function (el) {
+      var started = Date.parse(el.dataset.started);
+      if (!isNaN(started)) el.textContent = formatDuration(Math.max(0, Math.floor((now - started) / 1000)));
+    });
+  }, 1000);
 
   document.body.addEventListener("htmx:sseMessage", function (e) {
     // Only append a live log-line event to the log panel if it belongs to
@@ -170,15 +241,30 @@
     tmp.innerHTML = e.detail.data;
     var lineEl = tmp.firstElementChild;
     if (!lineEl || lineEl.dataset.job !== target.dataset.job) return;
+    // An active search (data-q / data-errors, see fragments/job_log.html)
+    // applies to live lines too.
+    var query = target.dataset.q || "";
+    var errorsOnly = Boolean(target.dataset.errors);
+    var text = lineEl.textContent;
+    if (!lineMatches(text, query, errorsOnly)) return;
+    if (query || errorsOnly) {
+      highlightInto(lineEl, text, query, errorsOnly);
+      var found = target.querySelector(".log-found");
+      if (found) found.textContent = Number(found.textContent) + 1;
+    }
     // Match the server-rendered lines (fragments/job_log.html): numbered,
     // and replacing the "log is empty" hint once output starts.
     var hint = target.querySelector(".log-empty-hint");
     if (hint) hint.remove();
     var ln = document.createElement("span");
     ln.className = "ln";
-    // Continue from the last number shown: a long log starts mid-file.
-    var lns = target.querySelectorAll(".ln");
-    ln.textContent = lns.length ? Number(lns[lns.length - 1].textContent) + 1 : 1;
+    if (lineEl.dataset.n) {
+      ln.textContent = lineEl.dataset.n;
+    } else {
+      // Continue from the last number shown: a long log starts mid-file.
+      var lns = target.querySelectorAll(".ln");
+      ln.textContent = lns.length ? Number(lns[lns.length - 1].textContent) + 1 : 1;
+    }
     lineEl.insertBefore(ln, lineEl.firstChild);
     target.appendChild(lineEl);
     // Keep the panel to the server's tail size during a long live run.

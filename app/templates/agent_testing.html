@@ -2,7 +2,7 @@
 {% block title %}Тестирование агентов{% endblock %}
 {% block subtitle %}Команды, агенты и их тесты{% endblock %}
 {% block content %}
-<div class="layout agents" hx-ext="sse" sse-connect="/jobs/stream">
+<div class="layout agents">
   <div class="panel">
     <h2>Команды и тесты</h2>
     {% for team in teams %}
@@ -41,10 +41,6 @@
   <div class="panel">
     <h2>Активные джобы</h2>
     <div id="job-list" hx-get="/jobs/fragments/list" hx-trigger="load, sse:job-status" hx-swap="innerHTML"></div>
-    {# sse.js only fires htmx:sseMessage for events some element listens to via
-       sse-swap; this no-op listener lets app.js append log-line events to the
-       open log panel and keep its status header current. #}
-    <div sse-swap="log-line,job-status" hx-swap="none" hidden></div>
   </div>
 </div>
 

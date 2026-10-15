@@ -17,6 +17,7 @@
     >
       <span class="dot {{ status_class(job.status) }}"></span>
       <span class="job-name">job #{{ job.id }} · {{ job.source }}</span>
+      <span class="job-dur" title="Длительность" data-started="{{ job.created_at | utc_iso }}">{{ job_duration(job) | duration }}</span>
       <span class="job-status">{{ job.status }}</span>
     </button>
   {% endfor %}

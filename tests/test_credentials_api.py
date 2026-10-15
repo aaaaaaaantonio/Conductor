@@ -110,12 +110,12 @@ def test_rejected_jenkins_token_is_not_saved(client, monkeypatch):
     _mock_http(monkeypatch, "app.execution.credential_checks", lambda r: httpx.Response(401))
 
     resp = client.post(
-        "/credentials", data={"jenkins_user": "bob", "jenkins_token": "bad"}
+        "/credentials", data={"jenkins_user": "bob", "jenkins_token": "rejected-tok-7f3"}
     )
 
     assert resp.status_code == 400
     assert "Jenkins отклонил логин или токен" in resp.text
-    assert "bad" not in resp.text
+    assert "rejected-tok-7f3" not in resp.text
     assert COOKIE_NAME not in client.cookies
 
 

@@ -39,7 +39,7 @@ async def test_start_local_job_streams_log_and_marks_success(tmp_path: Path, ses
     log_events = [e for e in events if e["type"] == "log-line"]
     status_events = [e for e in events if e["type"] == "job-status"]
     assert [e["line"] for e in log_events] == ["line one", "line two"]
-    assert status_events[-1] == {"type": "job-status", "job_id": job.id, "status": "success"}
+    assert {"type": "job-status", "job_id": job.id, "status": "success"}.items() <= status_events[-1].items()
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_start_local_job_marks_failed_when_executable_missing(tmp_path: Pa
     while not events_queue.empty():
         events.append(events_queue.get_nowait())
     status_events = [e for e in events if e["type"] == "job-status"]
-    assert status_events[-1] == {"type": "job-status", "job_id": job.id, "status": "failed"}
+    assert {"type": "job-status", "job_id": job.id, "status": "failed"}.items() <= status_events[-1].items()
 
 
 
@@ -144,7 +144,7 @@ async def test_cancel_kills_running_job_and_marks_cancelled(tmp_path: Path, sess
     events = []
     while not events_queue.empty():
         events.append(events_queue.get_nowait())
-    assert events[-1] == {"type": "job-status", "job_id": job.id, "status": "cancelled"}
+    assert {"type": "job-status", "job_id": job.id, "status": "cancelled"}.items() <= events[-1].items()
     assert job.id not in runner._processes
 
 
@@ -330,3 +330,36 @@ async def test_tokens_are_masked_in_file_and_live_log(tmp_path, session):
 async def test_very_short_token_values_are_not_masked(tmp_path, session):
     job = await _run(session, tmp_path, "print('abc def')", env={"ZEPHYR_TOKEN": "abc"})
     assert Path(job.log_path).read_text().splitlines() == ["abc def"]
+
+
+@pytest.mark.asyncio
+async def test_live_log_lines_carry_their_line_number(tmp_path, session):
+    # Lets the log panel number live lines correctly while a search filter
+    # hides some of them.
+    job = Job(source="python", status="queued", params_json="{}")
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    test_broadcaster = EventBroadcaster()
+    queue = test_broadcaster.subscribe()
+    await start_local_job(job.id, ["printf", "a\\nb\\nc\\n"], tmp_path, session, test_broadcaster)
+    events = [queue.get_nowait() for _ in range(queue.qsize())]
+    assert [(e["n"], e["line"]) for e in events if e["type"] == "log-line"] == [(1, "a"), (2, "b"), (3, "c")]
+
+
+@pytest.mark.asyncio
+async def test_final_status_event_carries_source_and_duration(tmp_path, session):
+    # The browser notification says what finished and how long it took.
+    job = Job(source="agent_test", status="queued", params_json="{}")
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    test_broadcaster = EventBroadcaster()
+    queue = test_broadcaster.subscribe()
+    await start_local_job(job.id, ["sleep", "1.1"], tmp_path, session, test_broadcaster)
+    events = [queue.get_nowait() for _ in range(queue.qsize())]
+    final = events[-1]
+    assert final["type"] == "job-status"
+    assert final["status"] == "success"
+    assert final["source"] == "agent_test"
+    assert final["duration"] in (1, 2)

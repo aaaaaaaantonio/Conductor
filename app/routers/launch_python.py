@@ -98,7 +98,12 @@ async def python_launch(
 
     from app.routers.jobs import job_list_fragment
 
-    return job_list_fragment(request, session)
+    response = job_list_fragment(request, session)
+    if execution_mode == "vm":
+        # app.js keeps the ids of jobs launched from this browser to badge the
+        # tab and chime when one of them finishes.
+        response.headers["HX-Trigger"] = json.dumps({"job-launched": {"id": job.id}})
+    return response
 
 
 @router.post("/python/restart", response_class=HTMLResponse)

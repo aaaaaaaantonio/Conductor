@@ -3,6 +3,12 @@
   <div class="log-head">
     <span class="dot {{ status_cls }}"></span>
     <span class="job-name">job #{{ job.id }} · {{ job.source }}</span>
+    {% set dur = job_duration(job) %}
+    {% if dur is not none %}
+      {# app.js ticks it while the job is active (data-started) and sets the
+         final value from the job-status event. #}
+      <span class="job-dur" title="Длительность"{% if job.status in ('queued', 'running') %} data-started="{{ job.created_at | utc_iso }}"{% endif %}>{{ dur | duration }}</span>
+    {% endif %}
     <span class="job-id">{{ job.status }}</span>
     {% if job.status in ('queued', 'running') %}
       {# Hidden by app.js once a job-status event says the job finished. #}
@@ -12,12 +18,25 @@
     {% endif %}
   </div>
 {% endif %}
-<div class="log" data-job="{{ job.id if job else '' }}" data-tail="{{ tail }}">
-{% if total_lines > lines | length %}
+{% if job and job.log_path %}
+  {# Searches the whole log file on the server; only the .log below is
+     swapped, so the box keeps focus while typing. #}
+  <form class="log-search" hx-get="/jobs/{{ job.id }}/fragments/log" hx-trigger="input delay:300ms, submit"
+        hx-target="next .log" hx-select=".log" hx-swap="outerHTML" role="search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Поиск по логу" aria-label="Поиск по логу" autocomplete="off">
+    <label class="log-errors"><input type="checkbox" name="errors" value="1"{{ ' checked' if errors }}> только ошибки</label>
+  </form>
+{% endif %}
+<div class="log" data-job="{{ job.id if job else '' }}" data-tail="{{ tail }}"{% if filtered %} data-q="{{ q }}" data-errors="{{ '1' if errors else '' }}"{% endif %}>
+{% if filtered %}
+  <div class="log-truncated">Найдено строк: <span class="log-found">{{ matched }}</span>{% if matched > lines | length %}, показаны последние {{ lines | length }}{% endif %} · <a class="launch-msg-link" href="/jobs/{{ job.id }}/log.txt" download>Скачать полный лог</a></div>
+{% elif total_lines > lines | length %}
   <div class="log-truncated">Показаны последние {{ lines | length }} из {{ total_lines }} строк · <a class="launch-msg-link" href="/jobs/{{ job.id }}/log.txt" download>Скачать полный лог</a></div>
 {% endif %}
-{% for line in lines %}<div><span class="ln">{{ first_line + loop.index0 }}</span>{{ line }}</div>{% endfor %}
-{% if not lines %}
+{% for n, line in lines %}<div><span class="ln">{{ n }}</span>{{ line | highlight(q, errors) }}</div>{% endfor %}
+{% if filtered and not lines %}
+  <div class="log-empty-hint">Совпадений нет</div>
+{% elif not lines %}
   {% set via_jenkins = job and (job.jenkins_build_id or job.status in ('triggering', 'triggered') or job.source == 'java') %}
   {% if job and not job.log_path and (via_jenkins or job.status not in ('queued', 'running')) %}
     {# No local log (Jenkins run, or a VM run that never started): show

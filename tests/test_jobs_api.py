@@ -106,11 +106,12 @@ async def test_stream_renders_escaped_job_tagged_log_line_and_json_status():
     gen = response.body_iterator
     try:
         await broadcaster.publish(
-            {"type": "log-line", "job_id": 7, "line": "<b>hi</b> & bye"}
+            {"type": "log-line", "job_id": 7, "n": 12, "line": "<b>hi</b> & bye"}
         )
         chunk = await asyncio.wait_for(gen.__anext__(), timeout=1)
         assert "event: log-line" in chunk
         assert 'data-job="7"' in chunk
+        assert 'data-n="12"' in chunk
         assert "&lt;b&gt;hi&lt;/b&gt; &amp; bye" in chunk
         assert "<b>hi</b>" not in chunk
         assert '"type"' not in chunk
@@ -615,3 +616,118 @@ def test_python_launch_accepts_matching_references(client, session, monkeypatch)
     )
 
     assert len(launched) == 1
+
+
+def test_python_vm_launch_tells_browser_the_new_job_id(client, session):
+    # app.js remembers jobs launched from this browser to badge the tab
+    # and chime when one of them finishes.
+    resp = _python_vm_launch(client)
+    job = session.exec(select(Job).order_by(Job.id.desc())).first()
+    assert json.loads(resp.headers["HX-Trigger"]) == {"job-launched": {"id": job.id}}
+
+
+def _job_with_lines(session, tmp_path, lines):
+    log_file = tmp_path / "job-search.log"
+    log_file.write_text("".join(line + "\n" for line in lines))
+    job = Job(source="python", status="success", params_json="{}", log_path=str(log_file))
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def test_log_search_scans_whole_file_not_just_tail(client, session, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.config.LOG_TAIL_LINES", 2)
+    job = _job_with_lines(session, tmp_path, ["start NEEDLE", "a", "b", "c", "d"])
+
+    text = client.get(f"/jobs/{job.id}/fragments/log", params={"q": "needle"}).text
+
+    assert '<span class="ln">1</span>start <mark>NEEDLE</mark>' in text
+    assert "<span class=\"ln\">5</span>" not in text
+    assert 'Найдено строк: <span class="log-found">1</span>' in text
+
+
+def test_log_search_keeps_last_matches_when_too_many(client, session, tmp_path, monkeypatch):
+    monkeypatch.setattr("app.config.LOG_TAIL_LINES", 2)
+    job = _job_with_lines(session, tmp_path, [f"hit {i}" for i in range(1, 6)])
+
+    text = client.get(f"/jobs/{job.id}/fragments/log", params={"q": "hit"}).text
+
+    assert '<span class="ln">4</span>' in text and '<span class="ln">5</span>' in text
+    assert '<span class="ln">3</span>' not in text
+    assert 'Найдено строк: <span class="log-found">5</span>, показаны последние 2' in text
+
+
+def test_log_search_escapes_line_and_query(client, session, tmp_path):
+    job = _job_with_lines(session, tmp_path, ["<script>x</script> & y"])
+
+    text = client.get(f"/jobs/{job.id}/fragments/log", params={"q": "<script>"}).text
+
+    assert "<mark>&lt;script&gt;</mark>x&lt;/script&gt; &amp; y" in text
+    assert "<script>x" not in text
+
+
+def test_log_errors_filter(client, session, tmp_path):
+    job = _job_with_lines(
+        session,
+        tmp_path,
+        ["ok line", "ERROR boom", "test_x FAILED", "Traceback (most recent call last):",
+         "ValueError: bad", "reading stderr", "all fine"],
+    )
+
+    text = client.get(f"/jobs/{job.id}/fragments/log", params={"errors": "1"}).text
+
+    for n in (2, 3, 4, 5):
+        assert f'<span class="ln">{n}</span>' in text
+    for n in (1, 6, 7):
+        assert f'<span class="ln">{n}</span>' not in text
+
+
+def test_log_search_without_matches(client, session, tmp_path):
+    job = _job_with_lines(session, tmp_path, ["a", "b"])
+
+    text = client.get(f"/jobs/{job.id}/fragments/log", params={"q": "zzz"}).text
+
+    assert "Совпадений нет" in text
+    assert "Лог пока пуст" not in text
+
+
+def test_log_panel_carries_active_filter_for_live_lines(client, session, tmp_path):
+    job = _job_with_lines(session, tmp_path, ["a"])
+
+    text = client.get(f"/jobs/{job.id}/fragments/log", params={"q": "a\"b", "errors": "1"}).text
+
+    assert 'data-q="a&#34;b"' in text or 'data-q="a&quot;b"' in text
+    assert 'data-errors="1"' in text
+
+
+def test_log_search_box_shown_only_for_local_logs(client, session, tmp_path):
+    job = _job_with_lines(session, tmp_path, ["a"])
+    jenkins = Job(source="java", status="triggered", params_json="{}")
+    session.add(jenkins)
+    session.commit()
+    session.refresh(jenkins)
+
+    assert 'class="log-search"' in client.get(f"/jobs/{job.id}/fragments/log").text
+    assert 'class="log-search"' not in client.get(f"/jobs/{jenkins.id}/fragments/log").text
+
+
+def test_log_head_and_lists_show_duration(client, session, tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    start = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
+    done = Job(source="python", status="success", params_json="{}", log_path=str(tmp_path / "none.log"),
+               created_at=start, updated_at=start + timedelta(minutes=4, seconds=12))
+    running = Job(source="agent_test", status="running", params_json="{}", log_path=str(tmp_path / "r.log"),
+                  created_at=start)
+    session.add(done)
+    session.add(running)
+    session.commit()
+    session.refresh(done)
+    session.refresh(running)
+
+    assert "4:12" in client.get(f"/jobs/{done.id}/fragments/log").text
+    assert "4:12" in client.get("/history/fragments/list").text
+    # Active jobs tick in the browser from their start time.
+    listing = client.get("/jobs/fragments/list").text
+    assert 'data-started="2026-10-15T12:00:00+00:00"' in listing

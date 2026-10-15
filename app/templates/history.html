@@ -2,7 +2,7 @@
 {% block title %}История{% endblock %}
 {% block subtitle %}Запуски за последние {{ retention_days }} дн. — более старые удаляются автоматически{% endblock %}
 {% block content %}
-<div class="layout history" hx-ext="sse" sse-connect="/jobs/stream">
+<div class="layout history">
   <div class="panel">
     <h2>Запуски</h2>
     {# Any change re-queries the list; "sse:job-status" keeps statuses of
@@ -34,7 +34,6 @@
       </div>
     </form>
     <div id="history-list">{% include "fragments/history_list.html" %}</div>
-    <div sse-swap="log-line,job-status" hx-swap="none" hidden></div>
   </div>
 
   <div class="panel log-panel">

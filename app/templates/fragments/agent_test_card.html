@@ -7,7 +7,7 @@
   </span>
 </div>
 
-<form id="launch-form-{{ test.id }}" data-launch-url="/api/agent-tests/{{ test.id }}/launch">
+<form id="launch-form-{{ test.id }}" data-launch-url="/api/agent-tests/{{ test.id }}/launch" data-remember="agent-test-{{ test.id }}">
   {% set checkbox_fields = test.fields | selectattr('type', 'equalto', 'checkbox') | list %}
   {% set input_fields = test.fields | rejectattr('type', 'equalto', 'checkbox') | list %}
   {# Flags without a same-named field are always added to the command
@@ -115,6 +115,10 @@
     }).then(function (resp) {
       submitBtn.disabled = false;
       if (resp.ok) {
+        // notify.js remembers the job to tell the user when it finishes.
+        resp.json().then(function (data) {
+          form.dispatchEvent(new CustomEvent("job-launched", { bubbles: true, detail: { id: data.job_id } }));
+        }).catch(function () {});
         if (window.htmx) {
           htmx.ajax("GET", "/jobs/fragments/list", { target: "#job-list", swap: "innerHTML" });
         }

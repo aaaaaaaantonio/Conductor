@@ -16,7 +16,7 @@ from app.credentials import Credentials, get_credentials
 from app.db import get_session
 from app.execution.broadcaster import broadcaster
 from app.execution.jenkins_launch import LaunchResult, launch_in_jenkins
-from app.execution.log_lines import for_display
+from app.execution.log_lines import for_display, matches
 from app.execution.runner import cancel_job
 from app.models.jobs import Job
 from app.templating import templates
@@ -171,18 +171,29 @@ async def cancel_job_endpoint(
 
 @router.get("/{job_id}/fragments/log", response_class=HTMLResponse)
 def job_log_fragment(
-    request: Request, job_id: int, session: Session = Depends(get_session)
+    request: Request,
+    job_id: int,
+    session: Session = Depends(get_session),
+    q: str = "",
+    errors: bool = False,
 ) -> HTMLResponse:
+    """The log panel. `q` / `errors` search the whole file, not just the
+    tail: matching lines are shown with their real numbers."""
     job = session.get(Job, job_id)
-    # Only the last lines are kept, each cut for display, so a huge log
-    # never sits in memory whole; /jobs/{id}/log.txt has all of it.
-    lines: deque[str] = deque(maxlen=config.LOG_TAIL_LINES)
-    total = 0
+    q = q.strip()
+    filtered = bool(q or errors)
+    # Only the last (matching) lines are kept, each cut for display, so a
+    # huge log never sits in memory whole; /jobs/{id}/log.txt has all of it.
+    lines: deque[tuple[int, str]] = deque(maxlen=config.LOG_TAIL_LINES)
+    total = matched = 0
     if job is not None and job.log_path is not None and Path(job.log_path).exists():
         with Path(job.log_path).open() as log_file:
-            for line in log_file:
-                lines.append(for_display(line.rstrip("\n"), config.LOG_LINE_MAX_CHARS))
-                total += 1
+            for total, line in enumerate(log_file, 1):
+                text = line.rstrip("\n")
+                if filtered and not matches(text, q, errors):
+                    continue
+                matched += 1
+                lines.append((total, for_display(text, config.LOG_LINE_MAX_CHARS)))
     return templates.TemplateResponse(
         request,
         "fragments/job_log.html",
@@ -190,7 +201,10 @@ def job_log_fragment(
             "lines": lines,
             "job": job,
             "total_lines": total,
-            "first_line": total - len(lines) + 1,
+            "matched": matched,
+            "filtered": filtered,
+            "q": q,
+            "errors": errors,
             "tail": config.LOG_TAIL_LINES,
         },
     )
@@ -244,7 +258,8 @@ async def stream_events() -> StreamingResponse:
                     # embedded ones first.
                     job_id = event["job_id"]
                     line = event["line"].replace("\r", "").replace("\n", " ")
-                    data = f'<div data-job="{job_id}">{html.escape(line)}</div>'
+                    number = f' data-n="{event["n"]}"' if "n" in event else ""
+                    data = f'<div data-job="{job_id}"{number}>{html.escape(line)}</div>'
                 else:
                     data = json.dumps(event)
                 yield f"event: {event['type']}\ndata: {data}\n\n"

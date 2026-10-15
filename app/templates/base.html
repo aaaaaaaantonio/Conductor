@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · Conductor</title>
+  <link rel="icon" id="favicon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
   <script src="/static/sse.js"></script>
@@ -30,7 +31,9 @@
       <svg viewBox="0 0 24 24" aria-hidden="true">{{ icon | safe }}</svg><span class="sb-label">{{ label }}</span>
     </a>
   {%- endmacro %}
-  <div class="shell">
+  {# One live event stream for every page: lists refresh on sse:job-status,
+     app.js appends log lines and notifies about finished jobs. #}
+  <div class="shell" hx-ext="sse" sse-connect="/jobs/stream">
     <aside class="sb" hx-boost="true">
       <a href="/python" class="sb-brand"><span class="sb-logo" aria-hidden="true">▶</span><span class="sb-label">Conductor</span></a>
       <nav class="sb-nav">
@@ -43,8 +46,11 @@
         {{ nav_item("/references", "Справочники", '<path d="M4 5h16M4 12h16M4 19h10"/>') }}
         {{ nav_item("/credentials", "Доступы", '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>') }}
       </nav>
-      {# Shown only on pages with a live SSE connection; app.js flips it on
-         htmx:sseOpen / htmx:sseError. #}
+      <button type="button" class="sb-item sb-notify" id="notify-toggle" aria-expanded="false" aria-controls="notify-panel" title="Уведомления">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 8 2.5 8h-17S6 15 6 9"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="sb-label">Уведомления</span>
+      </button>
+      {# Hidden until the stream opens; app.js flips it on htmx:sseOpen /
+         htmx:sseError. #}
       <div class="sb-sse" id="sse-status" hidden><span class="sb-sse-dot"></span><span class="sb-label sb-sse-text"></span></div>
     </aside>
     <main class="main">
@@ -54,7 +60,32 @@
       </header>
       {% block content %}{% endblock %}
     </main>
+    {# sse.js only fires htmx:sseMessage for events some element listens to
+       via sse-swap; this no-op listener lets app.js see them. #}
+    <div sse-swap="log-line,job-status" hx-swap="none" hidden></div>
+  </div>
+  {# Per-browser settings for finished-job notifications (static/notify.js). #}
+  <div class="notify-panel" id="notify-panel" role="dialog" aria-label="Уведомления" hidden>
+    <div class="notify-head">
+      <strong>Уведомления</strong>
+      <button type="button" class="notify-close" data-notify-close aria-label="Закрыть">×</button>
+    </div>
+    <p class="notify-intro">Когда твой запуск на VM закончится, а вкладка Conductor в фоне. Настройки хранятся в этом браузере.</p>
+    <div class="field">
+      <label for="notify-sound">Звук</label>
+      <div class="notify-sound-row">
+        <select id="notify-sound" data-notify="sound"></select>
+        <button type="button" class="btn-secondary" data-notify-play="success" title="Послушать: успех">▶ успех</button>
+        <button type="button" class="btn-secondary" data-notify-play="failed" title="Послушать: ошибка">▶ ошибка</button>
+      </div>
+    </div>
+    <label class="checkbox-row"><input type="checkbox" data-notify="badge"><span>Цифра на вкладке</span></label>
+    <label class="checkbox-row"><input type="checkbox" data-notify="os"><span>Уведомления системы</span></label>
+    <div class="notify-hint" data-notify-os-hint hidden></div>
+    <label class="checkbox-row"><input type="checkbox" data-notify="errorsOnly"><span>Только об ошибках</span></label>
+    <button type="button" class="btn-secondary notify-test" data-notify-test>Проверить через 3 секунды</button>
   </div>
   <script src="/static/app.js"></script>
+  <script src="/static/notify.js"></script>
 </body>
 </html>

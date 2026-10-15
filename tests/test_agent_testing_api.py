@@ -516,3 +516,12 @@ def test_launch_rejects_non_numeric_number_field(client, session):
     assert resp.status_code == 422
     assert "--users" in resp.json()["detail"]
     assert session.exec(select(Job)).all() == []
+
+
+def test_agent_test_card_remembers_values_and_announces_launch(client):
+    # app.js restores the last values per test; notify.js tracks the job.
+    _, agent = _team_agent(client)
+    test = _agent_test(client, agent["id"])
+    html = client.get(f"/agent-testing/tests/{test['id']}/fragments/card").text
+    assert f'data-remember="agent-test-{test["id"]}"' in html
+    assert '"job-launched"' in html
