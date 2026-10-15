@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Test Runner Bot", lifespan=lifespan)
+    app = FastAPI(title="Conductor", lifespan=lifespan)
     app.middleware("http")(credentials_middleware)
     # Added last, so it runs first: a rejected request never reaches the app.
     app.middleware("http")(origin_check_middleware)

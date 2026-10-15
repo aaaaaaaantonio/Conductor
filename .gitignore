@@ -5,3 +5,4 @@ test_runner.db
 job_logs/
 .venv/
 *.log
+.coverage
