@@ -13,7 +13,7 @@ from app.execution.command_builder import FieldSpec, build_command
 from app.execution.jenkins_launch import restart_python
 from app.execution.runner import start_local_job_with_own_session
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem, active_references, launch_reference_error
+from app.models.reference import ReferenceItem, SelectedId, active_references, launch_reference_error
 from app.templating import templates
 
 router = APIRouter(tags=["launch-python"])
@@ -37,8 +37,8 @@ def python_tab(request: Request, session: Session = Depends(get_session)) -> HTM
 async def python_launch(
     request: Request,
     background_tasks: BackgroundTasks,
-    team_id: int = Form(...),
-    stand_id: int = Form(...),
+    team_id: SelectedId = Form(None),
+    stand_id: SelectedId = Form(None),
     regression_type: str = Form(...),
     execution_mode: Literal["jenkins", "vm"] = Form(...),
     test_name_id: int | None = Form(None),

@@ -1,5 +1,17 @@
 
+from typing import Annotated, Any
+
+from pydantic import BeforeValidator
 from sqlmodel import Field, Session, SQLModel, select
+
+
+def blank_to_none(value: Any) -> Any:
+    """An empty <select> submits "": treat it (and whitespace) as no choice."""
+    return None if isinstance(value, str) and not value.strip() else value
+
+
+# An id picked in a <select> that may have no options to pick from.
+SelectedId = Annotated[int | None, BeforeValidator(blank_to_none)]
 
 
 class ReferenceItem(SQLModel, table=True):
@@ -60,8 +72,8 @@ def next_sort_order(session: Session, category: str, parent_id: int | None) -> i
 
 def launch_reference_error(
     session: Session,
-    team_id: int,
-    stand_id: int,
+    team_id: int | None,
+    stand_id: int | None,
     test_name_id: int | None,
     dataset_id: int | None = None,
 ) -> str | None:
@@ -78,6 +90,10 @@ def launch_reference_error(
             and (parent_id is None or item.parent_id == parent_id)
         )
 
+    if team_id is None:
+        return "Выберите команду"
+    if stand_id is None:
+        return "Выберите стенд"
     if not active(team_id, "team"):
         return "Команда не найдена или удалена — обновите страницу"
     if not active(stand_id, "stand"):

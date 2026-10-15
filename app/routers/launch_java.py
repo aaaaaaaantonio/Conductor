@@ -8,7 +8,7 @@ from app.config import JENKINS_JOB_NAMES
 from app.db import get_session
 from app.execution.jenkins_launch import restart_java
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem, active_references, launch_reference_error
+from app.models.reference import ReferenceItem, SelectedId, active_references, launch_reference_error
 from app.templating import templates
 
 router = APIRouter(tags=["launch-java"])
@@ -23,8 +23,8 @@ def java_tab(request: Request, session: Session = Depends(get_session)) -> HTMLR
 @router.post("/java/launch", response_class=HTMLResponse)
 async def java_launch(
     request: Request,
-    team_id: int = Form(...),
-    stand_id: int = Form(...),
+    team_id: SelectedId = Form(None),
+    stand_id: SelectedId = Form(None),
     regression_type: str = Form(...),
     part: str = Form(...),
     test_name_id: int | None = Form(None),

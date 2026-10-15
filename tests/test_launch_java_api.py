@@ -222,3 +222,17 @@ def test_java_launch_rejects_test_name_of_another_team(client, session):
 
     assert "не найден" in resp.text
     assert session.exec(select(Job)).all() == []
+
+
+def test_java_launch_with_empty_stand_is_refused_readably(client, session):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Java"}).json()
+
+    resp = client.post(
+        "/java/launch",
+        data={"team_id": team["id"], "stand_id": "", "regression_type": "regression", "part": "back"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["HX-Retarget"] == "#job-log-body"
+    assert "Выберите стенд" in resp.text
+    assert session.exec(select(Job)).all() == []

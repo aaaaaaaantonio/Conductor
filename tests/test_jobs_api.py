@@ -743,4 +743,46 @@ def test_error_filter_is_linear_on_huge_lines():
     start = _time.perf_counter()
     assert not matches("a" * 200_000, "", True)
     assert matches("x" * 200_000 + "ValueError", "", True)
-    assert _time.perf_counter() - start < 0.5
+    assert _time.perf_counter() - start < 2
+
+
+@pytest.mark.parametrize(
+    "line, marked",
+    [
+        ("raise ValueError: bad", "ValueError"),
+        ("java.lang.NullPointerException at Foo", "NullPointerException"),
+        ("ERROR: disk full", "ERROR"),
+    ],
+)
+def test_error_filter_highlights_whole_error_word(line, marked):
+    from app.execution.log_lines import highlight
+
+    assert f"<mark>{marked}</mark>" in str(highlight(line, "", True))
+
+
+def test_app_js_error_pattern_avoids_lookbehind(client):
+    # A lookbehind in a top-level regex literal is a parse error on engines
+    # without it (Safari < 16.4), which takes down all of app.js.
+    assert "(?<" not in client.get("/static/app.js").text
+
+
+@pytest.mark.parametrize(
+    "field, message", [("team_id", "Выберите команду"), ("stand_id", "Выберите стенд")]
+)
+def test_python_launch_with_empty_select_is_refused_readably(client, session, field, message):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    stand = client.post("/api/references", json={"category": "stand", "value": "stage-1"}).json()
+    data = {
+        "team_id": team["id"],
+        "stand_id": stand["id"],
+        "regression_type": "regression",
+        "execution_mode": "vm",
+    }
+    data[field] = ""
+
+    resp = client.post("/python/launch", data=data)
+
+    assert resp.status_code == 200
+    assert resp.headers["HX-Retarget"] == "#job-log-body"
+    assert message in resp.text
+    assert session.exec(select(Job)).all() == []

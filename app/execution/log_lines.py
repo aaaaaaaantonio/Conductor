@@ -12,9 +12,10 @@ MIN_MASKED_LENGTH = 4
 # The log panel's "только ошибки" filter. app.js has the same pattern for
 # live lines (ERROR_PATTERN there) — keep them in sync.
 ERROR_PATTERN = re.compile(
-    # "(?<=\w)" rather than "\w+" before error/exception: a leading \w+
-    # backtracks quadratically on long word-only lines (ReDoS).
-    r"\b(error|fail|failed|failure|fatal|critical|traceback)\b|(?<=\w)(error|exception)\b", re.IGNORECASE
+    # The leading \b keeps "\w+(error|exception)" linear: it starts only at
+    # word starts, not at every offset of a long word (quadratic, ReDoS).
+    # No lookbehind: app.js shares this pattern and old Safari can't parse it.
+    r"\b(error|fail|failed|failure|fatal|critical|traceback)\b|\b\w+(error|exception)\b", re.IGNORECASE
 )
 
 

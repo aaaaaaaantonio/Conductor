@@ -3,13 +3,14 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, BeforeValidator, StringConstraints
+from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.grouping import group_by
 from app.models.reference import (
     ReferenceItem,
+    SelectedId,
     TeamStandLink,
     active_references,
     next_sort_order,
@@ -199,26 +200,34 @@ def unlink_team_stand(
     return Response(status_code=204)
 
 
-# The selected option of the select above; empty when that select has no
+# The selected option of the select above; blank when that select has no
 # options (no teams yet, a team without tests), which means "no options here".
-ParentId = Annotated[int | None, BeforeValidator(lambda v: None if v == "" else v)]
+# The parameter itself stays required: a missing one is a broken hx-include.
+ParentId = SelectedId
+
+
+def _active_parent(session: Session, parent_id: int | None, category: str) -> bool:
+    parent = session.get(ReferenceItem, parent_id) if parent_id is not None else None
+    return parent is not None and parent.is_active and parent.category == category
 
 
 @router.get("/fragments/stands", response_class=HTMLResponse)
 def stand_options_fragment(
-    request: Request, team_id: ParentId = None, session: Session = Depends(get_session)
+    request: Request, team_id: ParentId, session: Session = Depends(get_session)
 ) -> HTMLResponse:
-    statement = (
-        select(ReferenceItem)
-        .join(TeamStandLink, TeamStandLink.stand_id == ReferenceItem.id)
-        .where(
-            TeamStandLink.team_id == team_id,
-            ReferenceItem.category == "stand",
-            ReferenceItem.is_active == True,  # noqa: E712
+    stands = []
+    if _active_parent(session, team_id, "team"):
+        statement = (
+            select(ReferenceItem)
+            .join(TeamStandLink, TeamStandLink.stand_id == ReferenceItem.id)
+            .where(
+                TeamStandLink.team_id == team_id,
+                ReferenceItem.category == "stand",
+                ReferenceItem.is_active == True,  # noqa: E712
+            )
+            .order_by(ReferenceItem.sort_order, ReferenceItem.value)
         )
-        .order_by(ReferenceItem.sort_order, ReferenceItem.value)
-    )
-    stands = list(session.exec(statement).all()) if team_id is not None else []
+        stands = list(session.exec(statement).all())
     return templates.TemplateResponse(
         request, "fragments/stand_options.html", {"stands": stands}
     )
@@ -226,18 +235,13 @@ def stand_options_fragment(
 
 @router.get("/fragments/test-names", response_class=HTMLResponse)
 def test_name_options_fragment(
-    request: Request, team_id: ParentId = None, session: Session = Depends(get_session)
+    request: Request, team_id: ParentId, session: Session = Depends(get_session)
 ) -> HTMLResponse:
-    statement = (
-        select(ReferenceItem)
-        .where(
-            ReferenceItem.category == "test_name",
-            ReferenceItem.parent_id == team_id,
-            ReferenceItem.is_active == True,  # noqa: E712
-        )
-        .order_by(ReferenceItem.sort_order, ReferenceItem.value)
+    test_names = (
+        active_references(session, "test_name", team_id)
+        if _active_parent(session, team_id, "team")
+        else []
     )
-    test_names = list(session.exec(statement).all()) if team_id is not None else []
     return templates.TemplateResponse(
         request, "fragments/test_name_options.html", {"test_names": test_names}
     )
@@ -245,18 +249,13 @@ def test_name_options_fragment(
 
 @router.get("/fragments/datasets", response_class=HTMLResponse)
 def dataset_options_fragment(
-    request: Request, test_name_id: ParentId = None, session: Session = Depends(get_session)
+    request: Request, test_name_id: ParentId, session: Session = Depends(get_session)
 ) -> HTMLResponse:
-    statement = (
-        select(ReferenceItem)
-        .where(
-            ReferenceItem.category == "dataset",
-            ReferenceItem.parent_id == test_name_id,
-            ReferenceItem.is_active == True,  # noqa: E712
-        )
-        .order_by(ReferenceItem.sort_order, ReferenceItem.value)
+    datasets = (
+        active_references(session, "dataset", test_name_id)
+        if _active_parent(session, test_name_id, "test_name")
+        else []
     )
-    datasets = list(session.exec(statement).all()) if test_name_id is not None else []
     return templates.TemplateResponse(
         request, "fragments/dataset_options.html", {"datasets": datasets}
     )

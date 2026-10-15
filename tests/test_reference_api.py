@@ -393,3 +393,35 @@ def test_option_fragments_accept_empty_parent(client, path, param):
 
 def test_option_fragments_still_reject_garbage_parent(client):
     assert client.get("/api/references/fragments/datasets", params={"test_name_id": "abc"}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/references/fragments/stands",
+        "/api/references/fragments/test-names",
+        "/api/references/fragments/datasets",
+    ],
+)
+def test_option_fragments_require_parent_param(client, path):
+    # A missing parameter means a broken hx-include, not "no options".
+    assert client.get(path).status_code == 422
+
+
+def test_option_fragments_treat_blank_parent_as_empty(client):
+    resp = client.get("/api/references/fragments/stands", params={"team_id": "  "})
+    assert resp.status_code == 200
+    assert "<option" not in resp.text
+
+
+def test_option_fragments_ignore_deleted_parent(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
+    client.post(
+        "/api/references",
+        json={"category": "test_name", "value": "test_login_flow", "parent_id": team["id"]},
+    )
+    assert client.delete(f"/api/references/{team['id']}").status_code == 204
+
+    resp = client.get("/api/references/fragments/test-names", params={"team_id": team["id"]})
+    assert resp.status_code == 200
+    assert "test_login_flow" not in resp.text
