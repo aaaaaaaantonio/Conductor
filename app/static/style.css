@@ -4,10 +4,12 @@
   --surface:#ffffff; --page:#f4f6f5; --field:#fafbfa;
   --accent:#2f6f5e; --accent-soft:#e4efec; --accent-strong:#245a4c;
   --status-ok:#2f7d4f; --status-ok-bg:#e5f3e8; --status-fail:#b3432b; --status-fail-bg:#fbe9e4; --status-run:#a8791a; --status-run-bg:#f7eed9;
-  /* sidebar + terminal stay dark in both themes */
-  --side:#16201d; --side-ink:#b7c3bf; --side-faint:#6d7c77; --side-hover:#1e2a26; --side-active:#24332e; --side-accent:#5fb79a;
-  --term:#111816; --term-ink:#c7d3cf; --term-faint:#4f5e58; --term-line:#22302b;
-  --term-ok:#7fd19c; --term-fail:#ef8a70; --term-run:#e0b84f;
+  /* sidebar stays dark in both themes */
+  --side:#16201d; --side-ink:#b7c3bf; --side-faint:#6d7c77; --side-hover:#1e2a26; --side-active:#24332e; --side-accent:#5fb79a; --side-fail:#ef8a70;
+  /* log panel: a light card here, lifted graphite in the dark theme */
+  --term:#ffffff; --term-border:#e1e6e3; --term-ink:#2a3431; --term-strong:#111816; --term-faint:#97a29e; --term-muted:#86908d;
+  --term-line:#e8ecea; --term-field:#f2f5f3; --term-raise:#fafbfa; --term-first:#b9d6cb; --term-mark:#f6e3a6;
+  --term-ok:#2f7d4f; --term-fail:#b3432b; --term-run:#a8791a;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
   --radius:12px; --shadow:0 1px 2px rgba(16,24,20,.04);
@@ -19,7 +21,9 @@
     --accent:#5fb79a; --accent-soft:#1a2a24; --accent-strong:#7bcbb0;
     --status-ok:#5fb679; --status-ok-bg:#17281c; --status-fail:#e08066; --status-fail-bg:#2b1c17; --status-run:#e0b84f; --status-run-bg:#2a2313;
     --side:#0b100e; --side-hover:#151d1a; --side-active:#1b2622;
-    --term:#0b100e; --term-line:#1b2622;
+    --term:#1f2826; --term-border:#2c3834; --term-ink:#dce4e0; --term-strong:#fff; --term-faint:#83938d; --term-muted:#93a29c;
+    --term-line:#2f3b37; --term-field:#2c3834; --term-raise:rgba(255,255,255,.02); --term-first:#3b5a4e; --term-mark:rgba(224,184,79,.38);
+    --term-ok:#86d6a3; --term-fail:#f29479; --term-run:#e0b84f;
     --shadow:none;
   }
 }
@@ -54,8 +58,8 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .sb-notify{margin-top:auto; border:0; background:transparent; width:100%; cursor:pointer; text-align:left}
 .sb-notify[aria-expanded="true"]{background:var(--side-active); color:#fff}
 .sb-sse-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--side-accent); box-shadow:0 0 0 3px rgba(95,183,154,.2)}
-.sb-sse.down .sb-sse-dot{background:var(--term-fail); box-shadow:0 0 0 3px rgba(239,138,112,.2)}
-.sb-sse.down{color:var(--term-fail)}
+.sb-sse.down .sb-sse-dot{background:var(--side-fail); box-shadow:0 0 0 3px rgba(239,138,112,.2)}
+.sb-sse.down{color:var(--side-fail)}
 
 .main{flex:1; min-width:0; padding:24px 28px 32px; display:flex; flex-direction:column; gap:18px}
 .page-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
@@ -173,16 +177,16 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 }
 .empty .glyph{font-size:1.6rem; opacity:.5}
 
-/* ---------- log panel: dark terminal in both themes ---------- */
+/* ---------- log panel: follows the theme ---------- */
 .panel.log-panel{
   padding:0; overflow:hidden; display:flex; flex-direction:column; min-height:460px;
-  background:var(--term); border-color:var(--term); color:var(--term-ink);
+  background:var(--term); border-color:var(--term-border); color:var(--term-ink);
 }
 .panel.log-panel h2{padding:16px 18px 0; margin-bottom:12px; color:var(--term-faint)}
 #job-log-body{flex:1; display:flex; flex-direction:column; min-height:0}
 .empty-log{
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
-  color:#71807a; font-size:13px; text-align:center; padding:32px 16px;
+  color:var(--term-muted); font-size:13px; text-align:center; padding:32px 16px;
 }
 .empty-log .glyph{font-size:1.6rem; opacity:.5}
 
@@ -191,7 +195,7 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .log-head .dot.run{background:var(--term-run); box-shadow:0 0 0 3px rgba(224,184,79,.2)}
 .log-head .dot.ok{background:var(--term-ok); box-shadow:0 0 0 3px rgba(127,209,156,.2)}
 .log-head .dot.fail{background:var(--term-fail); box-shadow:0 0 0 3px rgba(239,138,112,.2)}
-.log-head .job-name{font-weight:600; color:#fff}
+.log-head .job-name{font-weight:600; color:var(--term-strong)}
 /* status text next to the dot; app.js only updates the dot class + text */
 .log-head .job-id{margin-left:auto; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--term-faint)}
 .log-head .dot.run ~ .job-id{color:var(--term-run)}
@@ -206,23 +210,23 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
    template must not render as blank lines */
 .log > div{padding-left:3.2em; text-indent:-3.2em; white-space:pre-wrap; word-break:break-word}
 .log .ln{display:inline-block; width:2.4em; margin-right:.8em; text-align:right; text-indent:0; color:var(--term-faint); font-variant-numeric:tabular-nums; user-select:none}
-.log .log-empty-hint{color:#71807a; padding-left:0; text-indent:0}
-.log .log-truncated{color:#71807a; padding-left:0; text-indent:0; margin-bottom:6px}
+.log .log-empty-hint{color:var(--term-muted); padding-left:0; text-indent:0}
+.log .log-truncated{color:var(--term-muted); padding-left:0; text-indent:0; margin-bottom:6px}
 
 /* Jenkins launch replies: a feed, newest on top */
 #job-log-body:has(> .launch-msg){overflow-y:auto; max-height:70vh; padding:4px 18px 18px; gap:10px; flex:none}
 #job-log-body:has(> .launch-msg) > .empty-log{display:none}
 .launch-msg{
   position:relative; display:flex; flex-direction:column; gap:4px; flex-shrink:0;
-  padding:12px 14px 12px 50px; border:1px solid var(--term-line); border-radius:10px; background:rgba(255,255,255,.02);
+  padding:12px 14px 12px 50px; border:1px solid var(--term-line); border-radius:10px; background:var(--term-raise);
 }
 .launch-msg::before{content:"↗"; position:absolute; left:12px; top:12px; width:26px; height:26px; border-radius:50%;
   display:grid; place-items:center; font-size:13px; color:var(--term-ok); background:rgba(127,209,156,.12)}
 .launch-msg.failed::before{content:"!"; font-weight:700; color:var(--term-fail); background:rgba(239,138,112,.12)}
-.launch-msg:first-child{border-color:#2f4a40}
-.launch-msg-meta{font-family:var(--mono); font-size:11.5px; color:#71807a}
+.launch-msg:first-child{border-color:var(--term-first)}
+.launch-msg-meta{font-family:var(--mono); font-size:11.5px; color:var(--term-muted)}
 .launch-msg-tag{color:var(--term-run)}
-.launch-msg-title{font-weight:600; color:#fff; font-size:14px}
+.launch-msg-title{font-weight:600; color:var(--term-strong); font-size:14px}
 .launch-msg.failed .launch-msg-title{color:var(--term-fail)}
 .launch-msg-link{color:var(--term-ok); font-family:var(--mono); font-size:12.5px; word-break:break-all; align-self:flex-start}
 
@@ -420,14 +424,14 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 /* ---------- log search ---------- */
 .log-search{display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--term-line); flex-wrap:wrap}
 .log-search input[type="search"]{
-  flex:1; min-width:160px; background:var(--term-line); color:var(--term-ink); border:1px solid transparent;
+  flex:1; min-width:160px; background:var(--term-field); color:var(--term-ink); border:1px solid transparent;
   border-radius:7px; padding:6px 10px; font-family:var(--mono); font-size:12.5px;
 }
 .log-search input[type="search"]::placeholder{color:var(--term-faint)}
 .log-search input[type="search"]:focus{outline:none; border-color:var(--side-accent)}
 .log-errors{display:flex; align-items:center; gap:6px; color:var(--term-ink); font-size:12.5px; cursor:pointer; white-space:nowrap}
 .log-errors input{accent-color:var(--term-fail); width:15px; height:15px; margin:0}
-.log mark{background:rgba(224,184,79,.32); color:#fff; border-radius:2px; padding:0 1px}
+.log mark{background:var(--term-mark); color:var(--term-strong); border-radius:2px; padding:0 1px}
 .log .log-found{color:var(--term-ink); font-weight:600}
 
 /* ---------- notification settings ---------- */
