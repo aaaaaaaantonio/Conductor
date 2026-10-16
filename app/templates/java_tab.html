@@ -41,10 +41,17 @@
         </select>
       </div>
       <div class="field">
-        <label for="j-test-name-select">Имя теста</label>
+        <label for="j-thread-select">Режим</label>
+        <select id="j-thread-select" name="thread_mode">
+          <option value="multi">Многопоточный</option>
+          <option value="single">Однопоточный</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="j-test-select">Тест</label>
         <select
-          id="j-test-name-select"
-          name="test_name_id"
+          id="j-test-select"
+          name="test_id"
           hx-get="/api/references/fragments/java-tests"
           hx-include="#j-team-select, #j-part-select"
           hx-trigger="load, change from:#j-team-select, change from:#j-part-select"

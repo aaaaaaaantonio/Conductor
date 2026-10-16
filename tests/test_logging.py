@@ -51,7 +51,7 @@ def test_cross_site_request_is_logged(client, caplog):
 
 
 def test_refused_launch_is_logged(client, caplog):
-    client.post("/java/launch", data={"regression_type": "smoke", "part": "1"})
+    client.post("/java/launch", data={"regression_type": "smoke", "part": "front", "thread_mode": "multi"})
     assert "Launch refused: POST /java/launch:" in caplog.text
 
 

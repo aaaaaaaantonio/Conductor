@@ -1,3 +1,5 @@
+import json
+
 import httpx
 from sqlmodel import select
 
@@ -33,7 +35,7 @@ def test_launch_java_creates_queued_job(client, session, monkeypatch):
             "team_id": team["id"],
             "stand_id": stand["id"],
             "regression_type": "regression",
-            "part": "back",
+            "part": "back", "thread_mode": "multi",
         },
     )
     assert resp.status_code == 200
@@ -64,7 +66,7 @@ def test_launch_java_jenkins_mode_triggers_build(client, session, monkeypatch):
             "team_id": team["id"],
             "stand_id": stand["id"],
             "regression_type": "regression",
-            "part": "back",
+            "part": "back", "thread_mode": "multi",
         },
     )
     assert resp.status_code == 200
@@ -102,7 +104,7 @@ def test_launch_java_shows_error_when_jenkins_rejects(client, session, monkeypat
             "team_id": team["id"],
             "stand_id": stand["id"],
             "regression_type": "regression",
-            "part": "back",
+            "part": "back", "thread_mode": "multi",
         },
     )
     assert resp.status_code == 200
@@ -135,7 +137,7 @@ def test_launch_java_renders_custom_launch_result(client, session, monkeypatch):
             "team_id": team["id"],
             "stand_id": stand["id"],
             "regression_type": "regression",
-            "part": "back",
+            "part": "back", "thread_mode": "multi",
         },
     )
 
@@ -143,7 +145,8 @@ def test_launch_java_renders_custom_launch_result(client, session, monkeypatch):
         (
             "java",
             "java-tests",
-            {"team_id": team["id"], "stand_id": stand["id"], "regression_type": "regression", "part": "back"},
+            {"team_id": team["id"], "stand_id": stand["id"], "regression_type": "regression",
+             "part": "back", "thread_mode": "multi"},
         )
     ]
     assert "Запуск принят" in resp.text
@@ -191,7 +194,8 @@ def test_java_launch_rejects_unknown_stand(client, session, monkeypatch):
 
     resp = client.post(
         "/java/launch",
-        data={"team_id": team["id"], "stand_id": 999, "regression_type": "regression", "part": "back"},
+        data={"team_id": team["id"], "stand_id": 999, "regression_type": "regression",
+             "part": "back", "thread_mode": "multi"},
     )
 
     assert resp.status_code == 200
@@ -215,8 +219,8 @@ def test_java_launch_rejects_test_name_of_another_team(client, session):
             "team_id": team["id"],
             "stand_id": stand["id"],
             "regression_type": "regression",
-            "part": "back",
-            "test_name_id": test["id"],
+            "part": "back", "thread_mode": "multi",
+            "test_id": test["id"],
         },
     )
 
@@ -229,10 +233,114 @@ def test_java_launch_with_empty_stand_is_refused_readably(client, session):
 
     resp = client.post(
         "/java/launch",
-        data={"team_id": team["id"], "stand_id": "", "regression_type": "regression", "part": "back"},
+        data={"team_id": team["id"], "stand_id": "", "regression_type": "regression",
+             "part": "back", "thread_mode": "multi"},
     )
 
     assert resp.status_code == 200
     assert resp.headers["HX-Retarget"] == "#job-log-body"
     assert "Выберите стенд" in resp.text
     assert session.exec(select(Job)).all() == []
+
+
+def _mock_jenkins(monkeypatch) -> list[httpx.Request]:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/9/"})
+
+    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(
+        "app.execution.jenkins_launch.httpx.AsyncClient", lambda *a, **kw: mock_client
+    )
+    return requests
+
+
+def _java_refs(client, part="back", params=None):
+    team = client.post("/api/references", json={"category": "team", "value": "QA"}).json()["id"]
+    stand = client.post("/api/references", json={"category": "stand", "value": "s"}).json()["id"]
+    test = client.post(
+        "/api/references",
+        json={"category": "java_test", "value": "t", "parent_id": team, "part": part,
+              "command": "mvn test", "params": params or []},
+    ).json()["id"]
+    return team, stand, test
+
+
+def test_java_launch_sends_thread_mode_and_test_params_to_jenkins(client, session, monkeypatch):
+    requests = _mock_jenkins(monkeypatch)
+    params = [
+        {"key": "retry", "type": "bool", "value": "true"},
+        {"key": "env", "type": "text", "value": "a b"},
+        {"key": "headless", "type": "flag", "value": None},
+    ]
+    team, stand, test = _java_refs(client, params=params)
+
+    resp = client.post(
+        "/java/launch",
+        data={"team_id": team, "stand_id": stand, "regression_type": "regression",
+              "part": "back", "thread_mode": "single", "test_id": test},
+    )
+
+    assert resp.status_code == 200
+    assert requests[0].url.query.decode() == (
+        f"team_id={team}&stand_id={stand}&regression_type=regression&part=back&thread_mode=single"
+        f"&test_name_id={test}&test_command=mvn%20test&retry=true&env=a%20b&headless"
+    )
+    job = session.exec(select(Job)).first()
+    recorded = json.loads(job.params_json)
+    assert recorded["thread_mode"] == "single"
+    assert recorded["test_params"] == params
+
+
+def test_java_launch_refuses_test_of_other_part(client, session):
+    team, stand, test = _java_refs(client, part="front")
+
+    resp = client.post(
+        "/java/launch",
+        data={"team_id": team, "stand_id": stand, "regression_type": "regression",
+              "part": "back", "thread_mode": "multi", "test_id": test},
+    )
+
+    assert "Тест не найден у этой команды и части" in resp.text
+    assert session.exec(select(Job)).all() == []
+
+
+def test_java_launch_refuses_python_test(client, session):
+    team, stand, _ = _java_refs(client)
+    py = client.post(
+        "/api/references", json={"category": "python_test", "value": "p", "parent_id": team}
+    ).json()["id"]
+
+    resp = client.post(
+        "/java/launch",
+        data={"team_id": team, "stand_id": stand, "regression_type": "regression",
+              "part": "back", "thread_mode": "multi", "test_id": py},
+    )
+
+    assert "Тест не найден у этой команды и части" in resp.text
+    assert session.exec(select(Job)).all() == []
+
+
+def test_java_launch_rejects_unknown_thread_mode(client, session):
+    team, stand, _ = _java_refs(client)
+
+    resp = client.post(
+        "/java/launch",
+        data={"team_id": team, "stand_id": stand, "regression_type": "regression",
+              "part": "back", "thread_mode": "fast"},
+    )
+
+    assert resp.status_code == 422
+    assert session.exec(select(Job)).all() == []
+
+
+def test_java_tab_has_thread_mode_and_part_aware_test_select(client):
+    html = client.get("/java").text
+    assert 'name="thread_mode"' in html
+    assert "Многопоточный" in html
+    assert "Однопоточный" in html
+    assert 'hx-get="/api/references/fragments/java-tests"' in html
+    assert 'name="test_id"' in html
+    assert "change from:#j-part-select" in html
