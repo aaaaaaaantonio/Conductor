@@ -58,6 +58,16 @@ TESTDEPOT_ALLOWED_ORIGINS = [
     o.strip().rstrip("/") for o in os.environ.get("TESTDEPOT_ALLOWED_ORIGINS", "").split(",") if o.strip()
 ]
 
+# Level of the app's own log (refused requests, launches, job results):
+# DEBUG, INFO, WARNING or ERROR. uvicorn's access log is configured apart.
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+# App and uvicorn logs go to this file instead of the console. It is rotated
+# at LOG_MAX_MB, keeping LOG_BACKUPS older parts (.1, .2, ...), and cleared
+# with its parts on every start. Empty: console only.
+LOG_FILE = os.environ.get("LOG_FILE", "")
+LOG_MAX_MB = _int_env("LOG_MAX_MB", 10)
+LOG_BACKUPS = _int_env("LOG_BACKUPS", 2, minimum=0)
+
 JOB_LOG_DIR = Path(os.environ.get("JOB_LOG_DIR", BASE_DIR / "job_logs"))
 # Finished jobs and their log files are deleted after this many days.
 JOB_RETENTION_DAYS = _int_env("JOB_RETENTION_DAYS", 5)

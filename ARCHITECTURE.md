@@ -34,6 +34,8 @@ app/
   credentials.py          Credentials, шифрование cookie, credentials_middleware, get_credentials
   origin_check.py         CSRF: отклоняет POST/PUT/PATCH/DELETE с чужим Origin
   retention.py            удаление старых запусков и логов (при старте и раз в час)
+  logging_setup.py        лог приложения: консоль или LOG_FILE (ротация по размеру, очистка при старте,
+                          забирает и вывод uvicorn); причины 4xx/422 через exception handlers, log_refused()
   templating.py           Jinja2 + фильтры: localtime, duration, highlight, utc_iso; глобал job_duration
   grouping.py             group_by()
   models/
@@ -235,6 +237,7 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
   без Origin — пропуск, для curl/скриптов) + SameSite=Strict cookie.
 - Команды запускаются без shell (argv), значения как `--flag=value`.
 - Токены: только в зашифрованной cookie и в env подпроцесса; в логах маскируются.
+  В лог сервера не пишутся: у 422 — только поле и сообщение, без введённых значений.
 
 ## Тесты
 

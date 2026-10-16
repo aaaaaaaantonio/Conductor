@@ -29,11 +29,11 @@ cp run-python-tests.example.sh run-python-tests.sh
 
 ```bash
 cp .env.example .env   # один раз: впишите TESTDEPOT_SECRET_KEY и нужные переменные
-nohup uv run --env-file .env uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5 > testdepot.log 2>&1 &
+nohup uv run --env-file .env uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5 > testdepot.out 2>&1 &
 echo $! > testdepot.pid
 ```
 
-Сервер переживёт закрытие терминала, вывод — в `testdepot.log`. Остановить:
+Сервер переживёт закрытие терминала. Лог — в `testdepot.log` (`LOG_FILE` в `.env.example`): при каждом запуске он начинается заново, а при росте до `LOG_MAX_MB` уходит в `testdepot.log.1`, `.2` — на диске не больше `LOG_MAX_MB × (LOG_BACKUPS + 1)`, по умолчанию 30 МБ. В `testdepot.out` попадает только то, что случилось до старта приложения, например ошибка в `.env`. Смотреть лог: `tail -f testdepot.log`. Остановить:
 
 ```bash
 kill "$(cat testdepot.pid)" && rm testdepot.pid
@@ -53,6 +53,10 @@ kill "$(cat testdepot.pid)" && rm testdepot.pid
 | `JOB_LOG_DIR` | `<проект>/job_logs` | Куда пишутся логи локальных запусков. |
 | `JOB_RETENTION_DAYS` | `5` | Завершённые запуски и их логи старше этого числа дней удаляются. |
 | `LOG_TAIL_LINES` | `200` | Сколько последних строк лога показывает панель; полный лог — по ссылке «Скачать полный лог». |
+| `LOG_LEVEL` | `INFO` | Уровень лога самого приложения (`DEBUG`, `INFO`, `WARNING`, `ERROR`): почему запрос отклонён (4xx и причина), запуски и их итог. Пишется в тот же вывод, что и лог uvicorn. |
+| `LOG_FILE` | пусто (лог в консоль) | Файл для лога приложения и uvicorn вместо консоли. Очищается вместе с частями `.1`, `.2`… при каждом запуске. |
+| `LOG_MAX_MB` | `10` | Размер `LOG_FILE`, при котором он уходит в `.1`, а запись начинается в новый файл. |
+| `LOG_BACKUPS` | `2` | Сколько прошлых частей хранить (`.1` — самая свежая); `0` — только текущий файл. |
 | `LOG_LINE_MAX_CHARS` | `5000` | Строка длиннее показывается в браузере последними этим числом символов; в файле лога она хранится целиком. |
 
 ### Jenkins

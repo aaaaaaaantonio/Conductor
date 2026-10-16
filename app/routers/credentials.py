@@ -12,6 +12,7 @@ from app.credentials import (
     set_cookie,
 )
 from app.execution.credential_checks import CredentialsRejected, check_allure, check_jenkins, check_zephyr
+from app.logging_setup import log_refused
 from app.templating import templates
 
 router = APIRouter(tags=["credentials"])
@@ -69,6 +70,7 @@ async def save_credentials(
         if zephyr_token:
             await check_zephyr(zephyr_token)
     except CredentialsRejected as exc:
+        log_refused(request, 400, f"{exc} (user {jenkins_user})")
         return _page(request, creds, str(exc), jenkins_user, status_code=400)
 
     new_creds = Credentials(

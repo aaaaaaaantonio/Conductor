@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import signal
 from pathlib import Path
@@ -10,6 +11,8 @@ from app.execution.broadcaster import EventBroadcaster
 from app.execution.broadcaster import broadcaster as default_broadcaster
 from app.execution.log_lines import for_display, mask, read_lines
 from app.models.jobs import Job, duration_seconds
+
+logger = logging.getLogger(__name__)
 
 CANCELLED_LOG_LINE = "— Остановлено пользователем —"
 
@@ -90,6 +93,8 @@ async def _run_local_job(
     session.add(job)
     session.commit()
     await broadcaster.publish({"type": "job-status", "job_id": job_id, "status": "running"})
+    # Command only: the users' tokens travel in env.
+    logger.info("Job %d (%s): started %s", job_id, job.source, " ".join(command))
 
     process: asyncio.subprocess.Process | None = None
 
@@ -134,6 +139,8 @@ async def _run_local_job(
                 job.status = "cancelled"
             else:
                 job.status = "success" if return_code == 0 else "failed"
+                if return_code != 0:
+                    logger.warning("Job %d: exited with code %d, see %s", job_id, return_code, log_path)
     except asyncio.CancelledError:
         # Server shutdown. The process has its own group, so it would
         # outlive TestDepot and keep running unseen; stop it with us.
@@ -153,6 +160,7 @@ async def _run_local_job(
             # availability, etc.). There's no process to reap, but the
             # failure must still be visible in the job's log rather than
             # silently lost.
+            logger.error("Job %d: failed to start %s: %s", job_id, command[0], exc)
             with log_path.open("w") as log_file:
                 log_file.write(f"Failed to start process: {exc}\n")
         else:
@@ -168,6 +176,7 @@ async def _run_local_job(
         session.add(job)
         session.commit()
         session.refresh(job)
+        logger.info("Job %d (%s): %s", job_id, job.source, job.status)
         # Source and duration let the browser say what finished in its
         # notification.
         await broadcaster.publish(

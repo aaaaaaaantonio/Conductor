@@ -11,6 +11,7 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
 from app import config
+from app.logging_setup import log_refused
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -26,5 +27,6 @@ def _allowed(origin: str, request: Request) -> bool:
 async def origin_check_middleware(request: Request, call_next) -> Response:
     origin = request.headers.get("origin")
     if request.method in UNSAFE_METHODS and origin is not None and not _allowed(origin, request):
+        log_refused(request, 403, f"Origin {origin}, Host {request.headers.get('host')}")
         return JSONResponse({"detail": "Запрос с чужого сайта отклонён"}, status_code=403)
     return await call_next(request)

@@ -25,6 +25,8 @@ def isolated_job_log_dir(monkeypatch, tmp_path):
     # Job logs (local runs, the startup purge) go to a temp dir, never the
     # project's real job_logs/.
     monkeypatch.setattr("app.config.JOB_LOG_DIR", tmp_path / "job_logs")
+    # Nor does a LOG_FILE from the shell let create_app() clear a real log.
+    monkeypatch.setattr("app.config.LOG_FILE", "")
 
 
 @pytest.fixture(name="session")

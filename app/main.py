@@ -8,8 +8,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
+from app import config
 from app.credentials import credentials_middleware
 from app.db import init_db
+from app.logging_setup import configure_logging, install_error_logging
 from app.models.jobs import Job
 from app.origin_check import origin_check_middleware
 from app.retention import purge_loop, run_purge
@@ -53,7 +55,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    configure_logging(config.LOG_LEVEL, config.LOG_FILE, config.LOG_MAX_MB * 1024 * 1024, config.LOG_BACKUPS)
     app = FastAPI(title="TestDepot", lifespan=lifespan)
+    install_error_logging(app)
     app.middleware("http")(credentials_middleware)
     # Added last, so it runs first: a rejected request never reaches the app.
     app.middleware("http")(origin_check_middleware)

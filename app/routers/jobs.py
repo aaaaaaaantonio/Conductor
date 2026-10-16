@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import logging
 from collections import deque
 from collections.abc import Awaitable, Callable, Iterator
 from datetime import datetime
@@ -21,6 +22,8 @@ from app.execution.runner import cancel_job
 from app.models.jobs import Job
 from app.templating import templates
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 # Seconds of silence after which the event stream sends a keep-alive comment,
@@ -38,6 +41,7 @@ def job_list_fragment(request: Request, session: Session = Depends(get_session))
 def launch_refused_response(request: Request, message: str, auth_link: bool = False) -> HTMLResponse:
     """A launch refused before any job was created, shown in the log panel
     like a Jenkins reply."""
+    logger.warning("Launch refused: %s %s: %s", request.method, request.url.path, message)
     return templates.TemplateResponse(
         request,
         "fragments/jenkins_launched.html",
@@ -117,6 +121,10 @@ async def jenkins_reply_response(
             result = LaunchResult(message=f"{error_prefix}: {exc}")
     session.add(job)
     session.commit()
+    if job.status == "failed":
+        logger.warning("Job %d (%s): Jenkins request failed: %s", job.id, job.source, result.message)
+    else:
+        logger.info("Job %d (%s): sent to Jenkins, %s", job.id, job.source, result.url)
 
     # The Python tab's launch form targets #job-list (VM runs refresh it); a
     # Jenkins launch only adds its reply to the log panel, newest on top, so

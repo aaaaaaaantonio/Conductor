@@ -5,6 +5,8 @@ test_runner.db
 job_logs/
 .venv/
 *.log
+*.log.[0-9]*
+testdepot.out
 .coverage
 testdepot.pid
 .env
