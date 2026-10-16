@@ -80,3 +80,18 @@ def test_jenkins_values_and_vm_args():
     ]
     assert jenkins_values(ps) == {"env": "a b", "retry": "true", "headless": None}
     assert vm_args(ps) == ["--env=a b", "--retry=true", "--headless"]
+
+
+@pytest.mark.parametrize("key", ["token", "delay", "Cause"])
+@pytest.mark.parametrize("language", ["java", "python"])
+def test_rejects_jenkins_own_query_params(key, language):
+    # buildWithParameters consumes these itself (quiet period, trigger token).
+    with pytest.raises(ParamError, match="служебным"):
+        validate_params([P(key=key, type="flag")], language)
+
+
+@pytest.mark.parametrize("key", ["h", "he", "help"])
+def test_python_rejects_abbreviations_of_help(key):
+    # argparse would expand --h into --help: the runner prints usage and exits 0.
+    with pytest.raises(ParamError, match="--help"):
+        validate_params([P(key=key, type="flag")], "python")

@@ -207,6 +207,7 @@
         <label for="test-modal-team">Команда</label>
         <select id="test-modal-team">
           {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
+          {% for team_id in orphan_team_ids %}<option value="{{ team_id }}" hidden>Без команды</option>{% endfor %}
         </select>
       </div>
       <div class="field">
@@ -407,6 +408,9 @@
       (row ? "Изменение " : "Новый ") + (isJava ? (row ? "Java-теста" : "Java-тест") : (row ? "Python-теста" : "Python-тест"));
     document.getElementById("test-modal-part").hidden = !isJava;
     var team = document.getElementById("test-modal-team");
+    // A new test starts on the first live team, even right after an orphan's
+    // edit left a hidden deleted-team option selected.
+    team.selectedIndex = 0;
     if (row && row.dataset.parent) team.value = row.dataset.parent;
     document.getElementById("test-modal-value").value = row ? row.dataset.value : "";
     document.getElementById("test-modal-command").value = row ? row.dataset.command : "";

@@ -610,3 +610,15 @@ def test_dataset_form_lists_only_python_tests(client):
     select = select[:select.index("</select>")]
     assert "p-only" in select
     assert "j-only" not in select
+
+
+def test_test_modal_keeps_deleted_team_of_orphan_tests_selectable(client):
+    # Editing an orphaned test must send its real parent_id: the modal's team
+    # select needs a (hidden) option for the deleted team, or its value is "".
+    team = _create(client, "team", "Gone")
+    _create(client, "python_test", "orphan", team["id"])
+    client.delete(f"/api/references/{team['id']}")
+    html = client.get("/references").text
+    select = html[html.index('id="test-modal-team"'):]
+    select = select[:select.index("</select>")]
+    assert f'<option value="{team["id"]}" hidden>Без команды</option>' in select

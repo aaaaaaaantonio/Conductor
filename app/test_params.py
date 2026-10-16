@@ -12,16 +12,23 @@ from pydantic import BaseModel
 ParamType = Literal["text", "bool", "flag"]
 Language = Literal["java", "python"]
 
+# Query parameters buildWithParameters consumes itself (quiet period,
+# remote-trigger token, cause) instead of passing them to the job.
+JENKINS_OWN = frozenset({"token", "delay", "cause"})
 # Parameters a Java launch sends to Jenkins itself.
 JAVA_RESERVED = frozenset(
-    {"team_id", "stand_id", "regression_type", "part", "thread_mode", "test_name_id", "test_command"}
+    {"team_id", "stand_id", "regression_type", "part", "thread_mode", "test_name_id", "test_command", *JENKINS_OWN}
 )
 # The runner's own flags (without "--") in a Python VM launch.
 PYTHON_VM_FLAGS = ("team", "stand", "regression-type", "test-name", "dataset")
 # Parameters a Python launch sends to Jenkins, plus the VM flags.
 PYTHON_RESERVED = frozenset(
-    {"team_id", "stand_id", "regression_type", "test_name_id", "test_command", "dataset_id", *PYTHON_VM_FLAGS}
+    {"team_id", "stand_id", "regression_type", "test_name_id", "test_command", "dataset_id",
+     *PYTHON_VM_FLAGS, *JENKINS_OWN}
 )
+# Flags argparse would expand an abbreviation into: --h means --help, and
+# the runner would print usage and exit 0 without running anything.
+_ARGPARSE_FLAGS = (*PYTHON_VM_FLAGS, "help")
 
 _KEY_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 
@@ -43,7 +50,7 @@ def _reserved_error(key: str, language: Language) -> str | None:
         return f"Ключ «{key}» занят служебным параметром запуска"
     if language == "python":
         # argparse (allow_abbrev) would expand --tea into --team.
-        for flag in PYTHON_VM_FLAGS:
+        for flag in _ARGPARSE_FLAGS:
             if flag.startswith(lowered):
                 return f"Ключ «{key}» совпадает с началом служебного флага --{flag}"
     return None

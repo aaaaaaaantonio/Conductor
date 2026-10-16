@@ -385,5 +385,10 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
             "python_tests": python_tests,
             "datasets_by_team": datasets_by_team,
             "param_counts": param_counts,
+            # Deleted teams that still own active tests: the test modal needs
+            # an option for them so editing an orphan keeps its real parent.
+            "orphan_team_ids": sorted(
+                {t.parent_id for t in java_tests + python_tests if t.parent_id not in team_by_id}
+            ),
         },
     )
