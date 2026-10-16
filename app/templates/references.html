@@ -37,7 +37,7 @@
         {% endfor %}
       </div>
       {% if teams %}
-        <button type="button" class="btn-primary modal-trigger" data-modal="test-modal" data-category="{{ category }}" style="width:auto">{{ add_label }}</button>
+        <button type="button" class="btn-primary modal-trigger" data-modal="ref-test-modal" data-category="{{ category }}" style="width:auto">{{ add_label }}</button>
       {% else %}
         <div class="ref-empty">Сначала добавьте команду</div>
       {% endif %}
@@ -196,42 +196,42 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="test-modal">
+<div class="modal-overlay" id="ref-test-modal">
   <div class="modal-dialog" role="dialog" aria-modal="true">
     <div class="modal-head">
-      <span class="modal-eyebrow" id="test-modal-title">Новый тест</span>
+      <span class="modal-eyebrow" id="ref-test-modal-title">Новый тест</span>
       <button class="modal-close" type="button" aria-label="Закрыть">✕</button>
     </div>
     <div class="modal-body">
       <div class="field">
-        <label for="test-modal-team">Команда</label>
-        <select id="test-modal-team">
+        <label for="ref-test-modal-team">Команда</label>
+        <select id="ref-test-modal-team">
           {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
           {% for team_id in orphan_team_ids %}<option value="{{ team_id }}" hidden>Без команды</option>{% endfor %}
         </select>
       </div>
       <div class="field">
-        <label for="test-modal-value">Имя теста</label>
-        <input id="test-modal-value" type="text" required>
+        <label for="ref-test-modal-value">Имя теста</label>
+        <input id="ref-test-modal-value" type="text" required>
       </div>
       <div class="field">
-        <label for="test-modal-command">Команда запуска</label>
-        <input id="test-modal-command" type="text" placeholder="напр. mvn test -Dtest=Smoke">
+        <label for="ref-test-modal-command">Команда запуска</label>
+        <input id="ref-test-modal-command" type="text" placeholder="напр. mvn test -Dtest=Smoke">
       </div>
-      <fieldset class="field seg-field" id="test-modal-part">
+      <fieldset class="field seg-field" id="ref-test-modal-part">
         <legend>Часть</legend>
         <div class="seg">
-          <label><input type="radio" name="test-modal-part" value="front" checked><span>Фронт</span></label>
-          <label><input type="radio" name="test-modal-part" value="back"><span>Бэк</span></label>
+          <label><input type="radio" name="ref-test-modal-part" value="front" checked><span>Фронт</span></label>
+          <label><input type="radio" name="ref-test-modal-part" value="back"><span>Бэк</span></label>
         </div>
       </fieldset>
       <div class="section-label">Параметры</div>
-      <div id="test-modal-params"></div>
-      <button type="button" class="btn-secondary" id="test-modal-add-param" style="width:auto">+ параметр</button>
+      <div id="ref-test-modal-params"></div>
+      <button type="button" class="btn-secondary" id="ref-test-modal-add-param" style="width:auto">+ параметр</button>
     </div>
     <div class="modal-foot">
       <button class="btn-secondary modal-cancel" type="button">Отмена</button>
-      <button class="btn-primary" type="button" id="test-modal-submit">Сохранить</button>
+      <button class="btn-primary" type="button" id="ref-test-modal-submit">Сохранить</button>
     </div>
   </div>
 </div>
@@ -375,8 +375,8 @@
 
   // --- java/python test modal (create + edit) ---
   // Looked up per call for the same reason as the stand modal.
-  function getTestModal() { return document.getElementById("test-modal"); }
-  function getTestModalBody() { return document.querySelector("#test-modal .modal-body"); }
+  function getTestModal() { return document.getElementById("ref-test-modal"); }
+  function getTestModalBody() { return document.querySelector("#ref-test-modal .modal-body"); }
   if (getTestModalBody()) formError.bind(getTestModalBody());
 
   function showParamValue(row) {
@@ -394,7 +394,7 @@
       if (param.type === "bool") row.querySelector(".tp-bool").value = param.value;
     }
     showParamValue(row);
-    document.getElementById("test-modal-params").appendChild(row);
+    document.getElementById("ref-test-modal-params").appendChild(row);
     return row;
   }
 
@@ -404,23 +404,25 @@
     var isJava = category === "java_test";
     modal.dataset.category = category;
     modal.dataset.itemId = row ? row.dataset.id : "";
-    document.getElementById("test-modal-title").textContent =
+    document.getElementById("ref-test-modal-title").textContent =
       (row ? "Изменение " : "Новый ") + (isJava ? (row ? "Java-теста" : "Java-тест") : (row ? "Python-теста" : "Python-тест"));
-    document.getElementById("test-modal-part").hidden = !isJava;
-    var team = document.getElementById("test-modal-team");
+    document.getElementById("ref-test-modal-part").hidden = !isJava;
+    var team = document.getElementById("ref-test-modal-team");
     // A new test starts on the first live team, even right after an orphan's
     // edit left a hidden deleted-team option selected.
     team.selectedIndex = 0;
     if (row && row.dataset.parent) team.value = row.dataset.parent;
-    document.getElementById("test-modal-value").value = row ? row.dataset.value : "";
-    document.getElementById("test-modal-command").value = row ? row.dataset.command : "";
+    document.getElementById("ref-test-modal-value").value = row ? row.dataset.value : "";
+    var command = document.getElementById("ref-test-modal-command");
+    command.value = row ? row.dataset.command : "";
+    command.placeholder = isJava ? "напр. mvn test -Dtest=Smoke" : "напр. smoke";
     var part = row && row.dataset.part ? row.dataset.part : "front";
-    modal.querySelector('input[name="test-modal-part"][value="' + part + '"]').checked = true;
-    document.getElementById("test-modal-params").innerHTML = "";
+    modal.querySelector('input[name="ref-test-modal-part"][value="' + part + '"]').checked = true;
+    document.getElementById("ref-test-modal-params").innerHTML = "";
     (row ? JSON.parse(row.dataset.params || "[]") : []).forEach(addParamRow);
     formError.clear(getTestModalBody());
     modal.classList.add("open");
-    document.getElementById("test-modal-value").focus();
+    document.getElementById("ref-test-modal-value").focus();
   }
 
   function closeTestModal() {
@@ -430,7 +432,7 @@
 
   function collectParams() {
     var params = [];
-    document.querySelectorAll("#test-modal-params .param-row").forEach(function (row) {
+    document.querySelectorAll("#ref-test-modal-params .param-row").forEach(function (row) {
       var key = row.querySelector(".tp-key").value.trim();
       if (!key) return;
       var type = row.querySelector(".tp-type").value;
@@ -445,15 +447,15 @@
   function submitTestModal() {
     var modal = getTestModal();
     var body = getTestModalBody();
-    var valueInput = document.getElementById("test-modal-value");
+    var valueInput = document.getElementById("ref-test-modal-value");
     if (!valueInput.value.trim()) { valueInput.focus(); return; }
     formError.clear(body);
     var category = modal.dataset.category;
     var payload = {
       value: valueInput.value,
-      parent_id: Number(document.getElementById("test-modal-team").value),
-      command: document.getElementById("test-modal-command").value || null,
-      part: category === "java_test" ? modal.querySelector('input[name="test-modal-part"]:checked').value : null,
+      parent_id: Number(document.getElementById("ref-test-modal-team").value),
+      command: document.getElementById("ref-test-modal-command").value || null,
+      part: category === "java_test" ? modal.querySelector('input[name="ref-test-modal-part"]:checked').value : null,
       params: collectParams(),
     };
     var itemId = modal.dataset.itemId;
@@ -472,7 +474,7 @@
     });
   }
 
-  var paramsBox = document.getElementById("test-modal-params");
+  var paramsBox = document.getElementById("ref-test-modal-params");
   if (paramsBox) {
     paramsBox.addEventListener("change", function (e) {
       if (!e.target.classList.contains("tp-type")) return;
@@ -488,6 +490,14 @@
   // nav swaps <body>'s innerHTML and re-runs this script, but never
   // recreates body/document themselves). bindPersistent (base.html) swaps the
   // listener out rather than stacking a duplicate each render.
+  // A click on a backdrop closes its modal only when the press started there
+  // too: selecting text in a field and releasing over the backdrop fires
+  // `click` on the overlay and would throw away everything typed.
+  var pressedOn = null;
+  window.bindPersistent(document, "mousedown", "__refsMousedownHandler", function (e) {
+    pressedOn = e.target;
+  });
+
   window.bindPersistent(document, "keydown", "__refsKeydownHandler", function (e) {
     if (e.key === "Escape") { closeStandModal(); closeTestModal(); }
   });
@@ -509,7 +519,8 @@
       return;
     }
 
-    if (e.target === getStandModal() || e.target.closest("#stand-modal .modal-close, #stand-modal .modal-cancel")) {
+    var standModal = getStandModal();
+    if ((e.target === standModal && pressedOn === standModal) || e.target.closest("#stand-modal .modal-close, #stand-modal .modal-cancel")) {
       closeStandModal();
       return;
     }
@@ -519,7 +530,7 @@
       return;
     }
 
-    var testTrigger = e.target.closest('.modal-trigger[data-modal="test-modal"]');
+    var testTrigger = e.target.closest('.modal-trigger[data-modal="ref-test-modal"]');
     if (testTrigger) {
       e.preventDefault();
       openTestModal(testTrigger.dataset.category, null);
@@ -534,12 +545,13 @@
       return;
     }
 
-    if (e.target === getTestModal() || e.target.closest("#test-modal .modal-close, #test-modal .modal-cancel")) {
+    var testModal = getTestModal();
+    if ((e.target === testModal && pressedOn === testModal) || e.target.closest("#ref-test-modal .modal-close, #ref-test-modal .modal-cancel")) {
       closeTestModal();
       return;
     }
 
-    if (e.target.closest("#test-modal-add-param")) {
+    if (e.target.closest("#ref-test-modal-add-param")) {
       addParamRow(null).querySelector(".tp-key").focus();
       return;
     }
@@ -550,7 +562,7 @@
       return;
     }
 
-    if (e.target.closest("#test-modal-submit")) {
+    if (e.target.closest("#ref-test-modal-submit")) {
       submitTestModal();
       return;
     }

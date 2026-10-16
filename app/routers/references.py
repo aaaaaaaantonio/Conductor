@@ -145,7 +145,8 @@ class ReferenceItemUpdateRequest(BaseModel):
     parent_id: int | None = None
     command: str | None = None
     part: Part | None = None
-    params: list[CustomParam] = []
+    # None (field left out) keeps the stored params; [] clears them.
+    params: list[CustomParam] | None = None
 
 
 @router.put("/{item_id}", response_model=ReferenceItem)
@@ -156,7 +157,9 @@ def update_reference_item(
     if item is None:
         raise HTTPException(status_code=404, detail="Запись не найдена")
     _check_parent(session, item.category, payload.parent_id, item_id)
-    part, params_json = _check_test_fields(item.category, payload.part, payload.params)
+    part, params_json = _check_test_fields(item.category, payload.part, payload.params or [])
+    if payload.params is None:
+        params_json = item.params_json
     if _duplicate(session, item.category, payload.value, payload.parent_id, part, item_id):
         raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
     if payload.parent_id != item.parent_id:

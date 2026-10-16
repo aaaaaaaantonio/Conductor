@@ -587,7 +587,7 @@ def test_references_page_has_two_test_tiles_and_test_modal(client):
     assert "1 парам." in java_panel
     assert "+ Добавить Java-тест" in html
     assert "+ Добавить Python-тест" in html
-    assert 'id="test-modal"' in html
+    assert 'id="ref-test-modal"' in html
     for label in ("Текст", "Да-нет", "Без значения"):
         assert label in html
 
@@ -619,6 +619,23 @@ def test_test_modal_keeps_deleted_team_of_orphan_tests_selectable(client):
     _create(client, "python_test", "orphan", team["id"])
     client.delete(f"/api/references/{team['id']}")
     html = client.get("/references").text
-    select = html[html.index('id="test-modal-team"'):]
+    select = html[html.index('id="ref-test-modal-team"'):]
     select = select[:select.index("</select>")]
     assert f'<option value="{team["id"]}" hidden>Без команды</option>' in select
+
+
+def test_update_without_params_keeps_them(client):
+    # An API client that only renames a test must not wipe its params.
+    team = _create(client, "team", "QA")
+    item = _create(client, "python_test", "t", team["id"], params=[{"key": "a", "type": "flag"}])
+    resp = client.put(f"/api/references/{item['id']}", json={"value": "t2", "parent_id": team["id"]})
+    assert resp.status_code == 200
+    assert json.loads(resp.json()["params_json"]) == [{"key": "a", "type": "flag", "value": None}]
+
+
+def test_references_test_modal_id_does_not_clash_with_agent_testing(client):
+    # app.js drives any #test-modal globally (the agent-testing launch card):
+    # opens it on every .modal-trigger and closes it on any backdrop click.
+    html = client.get("/references").text
+    assert 'id="test-modal"' not in html
+    assert 'id="ref-test-modal"' in html
