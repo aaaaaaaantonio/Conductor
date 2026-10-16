@@ -41,13 +41,13 @@ async def python_launch(
     stand_id: SelectedId = Form(None),
     regression_type: str = Form(...),
     execution_mode: Literal["jenkins", "vm"] = Form(...),
-    test_name_id: int | None = Form(None),
+    test_id: SelectedId = Form(None),
     dataset_id: int | None = Form(None),
     session: Session = Depends(get_session),
 ) -> HTMLResponse:
     from app.routers.jobs import launch_refused_response
 
-    error = launch_reference_error(session, team_id, stand_id, test_name_id, dataset_id)
+    error = launch_reference_error(session, team_id, stand_id, test_id, "python_test", dataset_id=dataset_id)
     if error:
         return launch_refused_response(request, error)
     vm_env = None
@@ -57,13 +57,13 @@ async def python_launch(
         if vm_env is None:
             return launch_refused_response(request, VM_TOKENS_MISSING, auth_link=True)
 
-    test_command = session.get(ReferenceItem, test_name_id).command if test_name_id is not None else None
+    test_command = session.get(ReferenceItem, test_id).command if test_id is not None else None
 
     params = {
         "team_id": team_id,
         "stand_id": stand_id,
         "regression_type": regression_type,
-        "test_name_id": test_name_id,
+        "test_name_id": test_id,
         "test_command": test_command,
         "dataset_id": dataset_id,
     }
@@ -80,7 +80,7 @@ async def python_launch(
             "--team": team_id,
             "--stand": stand_id,
             "--regression-type": regression_type,
-            "--test-name": test_command if test_command else test_name_id,
+            "--test-name": test_command if test_command else test_id,
             "--dataset": dataset_id,
         }
         command = build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values)

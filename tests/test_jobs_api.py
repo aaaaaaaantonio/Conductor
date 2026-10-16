@@ -530,8 +530,8 @@ def _refs(client):
 
     team = ref("team", "QA")
     other_team = ref("team", "Other")
-    test = ref("test_name", "smoke", team)
-    other_test = ref("test_name", "other-smoke", other_team)
+    test = ref("python_test", "smoke", team)
+    other_test = ref("python_test", "other-smoke", other_team)
     return {
         "team": team,
         "stand": ref("stand", "stage-1"),
@@ -549,10 +549,10 @@ def _refs(client):
         {"team_id": "stand"},
         {"stand_id": 999},
         {"stand_id": "team"},
-        {"test_name_id": 999},
-        {"test_name_id": "other_test"},
+        {"test_id": 999},
+        {"test_id": "other_test"},
         {"dataset_id": "other_dataset"},
-        {"dataset_id": "dataset", "test_name_id": None},
+        {"dataset_id": "dataset", "test_id": None},
     ],
 )
 @pytest.mark.parametrize("mode", ["vm", "jenkins"])
@@ -567,7 +567,7 @@ def test_python_launch_rejects_unknown_or_mismatched_references(client, session,
         "stand_id": refs["stand"],
         "regression_type": "regression",
         "execution_mode": mode,
-        "test_name_id": refs["test"],
+        "test_id": refs["test"],
         "dataset_id": refs["dataset"],
     }
     for key, value in bad.items():
@@ -610,7 +610,7 @@ def test_python_launch_accepts_matching_references(client, session, monkeypatch)
             "stand_id": refs["stand"],
             "regression_type": "regression",
             "execution_mode": "vm",
-            "test_name_id": refs["test"],
+            "test_id": refs["test"],
             "dataset_id": refs["dataset"],
         },
     )

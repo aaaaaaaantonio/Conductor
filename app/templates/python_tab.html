@@ -44,8 +44,8 @@
         <label for="test-name-select">Имя теста</label>
         <select
           id="test-name-select"
-          name="test_name_id"
-          hx-get="/api/references/fragments/test-names"
+          name="test_id"
+          hx-get="/api/references/fragments/python-tests"
           hx-include="#team-select"
           hx-trigger="load, change from:#team-select"
           hx-disabled-elt="unset"

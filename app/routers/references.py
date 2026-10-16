@@ -3,20 +3,23 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, BeforeValidator, StringConstraints
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.grouping import group_by
 from app.models.reference import (
+    Part,
     ReferenceItem,
     SelectedId,
     TeamStandLink,
     active_references,
+    blank_to_none,
     next_sort_order,
     sibling_references,
 )
 from app.templating import templates
+from app.test_params import CustomParam, ParamError, dump_params, validate_params
 
 router = APIRouter(prefix="/api/references", tags=["references"])
 page_router = APIRouter(tags=["references-ui"])
@@ -25,18 +28,20 @@ page_router = APIRouter(tags=["references-ui"])
 # still active, so they stay visible/editable instead of vanishing from the
 # UI (see references_page).
 _ORPHAN_TEAM = ReferenceItem(category="team", value="Без команды")
-_ORPHAN_TEST_NAME = ReferenceItem(category="test_name", value="Без теста")
+_ORPHAN_TEST = ReferenceItem(category="python_test", value="Без теста")
 
 
-Category = Literal["team", "stand", "test_name", "dataset"]
+Category = Literal["team", "stand", "java_test", "python_test", "dataset"]
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 # Which category an item's parent must be; None means a top-level item.
 PARENT_CATEGORY: dict[str, str | None] = {
     "team": None,
     "stand": None,
-    "test_name": "team",
-    "dataset": "test_name",
+    "java_test": "team",
+    "python_test": "team",
+    "dataset": "python_test",
 }
+TEST_LANGUAGE = {"java_test": "java", "python_test": "python"}
 
 
 def _check_parent(session: Session, category: str, parent_id: int | None, item_id: int | None = None) -> None:
@@ -54,11 +59,47 @@ def _check_parent(session: Session, category: str, parent_id: int | None, item_i
         raise HTTPException(status_code=422, detail="Родитель не найден или из другой категории")
 
 
+def _check_test_fields(
+    category: str, part: str | None, params: list[CustomParam]
+) -> tuple[str | None, str | None]:
+    """The part and params_json to store for an item of this category."""
+    if category == "java_test" and part is None:
+        raise HTTPException(status_code=422, detail="У Java-теста укажите часть: фронт или бэк")
+    if category != "java_test" and part is not None:
+        raise HTTPException(status_code=422, detail="Часть бывает только у Java-теста")
+    language = TEST_LANGUAGE.get(category)
+    if language is None:
+        if params:
+            raise HTTPException(status_code=422, detail="Параметры бывают только у тестов")
+        return part, None
+    try:
+        return part, dump_params(validate_params(params, language))
+    except ParamError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _duplicate(
+    session: Session, category: str, value: str, parent_id: int | None, part: str | None, item_id: int | None = None
+) -> bool:
+    statement = select(ReferenceItem).where(
+        ReferenceItem.category == category,
+        ReferenceItem.value == value,
+        ReferenceItem.parent_id == parent_id,
+        ReferenceItem.part == part,
+        ReferenceItem.is_active == True,  # noqa: E712
+    )
+    if item_id is not None:
+        statement = statement.where(ReferenceItem.id != item_id)
+    return session.exec(statement).first() is not None
+
+
 class ReferenceItemCreateRequest(BaseModel):
     category: Category
     value: NonBlank
     parent_id: int | None = None
     command: str | None = None
+    part: Part | None = None
+    params: list[CustomParam] = []
 
 
 class TeamStandLinkRequest(BaseModel):
@@ -80,16 +121,16 @@ def create_reference_item(
     payload: ReferenceItemCreateRequest, session: Session = Depends(get_session)
 ) -> ReferenceItem:
     _check_parent(session, payload.category, payload.parent_id)
-    item = ReferenceItem(**payload.model_dump())
-    existing = session.exec(
-        select(ReferenceItem).where(
-            ReferenceItem.category == item.category,
-            ReferenceItem.value == item.value,
-            ReferenceItem.parent_id == item.parent_id,
-            ReferenceItem.is_active == True,  # noqa: E712
-        )
-    ).first()
-    if existing is not None:
+    part, params_json = _check_test_fields(payload.category, payload.part, payload.params)
+    item = ReferenceItem(
+        category=payload.category,
+        value=payload.value,
+        parent_id=payload.parent_id,
+        command=payload.command,
+        part=part,
+        params_json=params_json,
+    )
+    if _duplicate(session, item.category, item.value, item.parent_id, item.part):
         raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
     item.sort_order = next_sort_order(session, item.category, item.parent_id)
     session.add(item)
@@ -102,6 +143,8 @@ class ReferenceItemUpdateRequest(BaseModel):
     value: NonBlank
     parent_id: int | None = None
     command: str | None = None
+    part: Part | None = None
+    params: list[CustomParam] = []
 
 
 @router.put("/{item_id}", response_model=ReferenceItem)
@@ -112,22 +155,16 @@ def update_reference_item(
     if item is None:
         raise HTTPException(status_code=404, detail="Запись не найдена")
     _check_parent(session, item.category, payload.parent_id, item_id)
-    duplicate = session.exec(
-        select(ReferenceItem).where(
-            ReferenceItem.category == item.category,
-            ReferenceItem.value == payload.value,
-            ReferenceItem.parent_id == payload.parent_id,
-            ReferenceItem.is_active == True,  # noqa: E712
-            ReferenceItem.id != item_id,
-        )
-    ).first()
-    if duplicate is not None:
+    part, params_json = _check_test_fields(item.category, payload.part, payload.params)
+    if _duplicate(session, item.category, payload.value, payload.parent_id, part, item_id):
         raise HTTPException(status_code=409, detail="Такое значение уже есть в этой категории")
     if payload.parent_id != item.parent_id:
         item.sort_order = next_sort_order(session, item.category, payload.parent_id)
     item.value = payload.value
     item.parent_id = payload.parent_id
     item.command = payload.command
+    item.part = part
+    item.params_json = params_json
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -204,6 +241,8 @@ def unlink_team_stand(
 # options (no teams yet, a team without tests), which means "no options here".
 # The parameter itself stays required: a missing one is a broken hx-include.
 ParentId = SelectedId
+# The selected part on the Java tab; blank like ParentId.
+SelectedPart = Annotated[Part | None, BeforeValidator(blank_to_none)]
 
 
 def _active_parent(session: Session, parent_id: int | None, category: str) -> bool:
@@ -233,27 +272,35 @@ def stand_options_fragment(
     )
 
 
-@router.get("/fragments/test-names", response_class=HTMLResponse)
-def test_name_options_fragment(
+@router.get("/fragments/java-tests", response_class=HTMLResponse)
+def java_test_options_fragment(
+    request: Request, team_id: ParentId, part: SelectedPart, session: Session = Depends(get_session)
+) -> HTMLResponse:
+    tests = []
+    if part is not None and _active_parent(session, team_id, "team"):
+        tests = [t for t in active_references(session, "java_test", team_id) if t.part == part]
+    return templates.TemplateResponse(request, "fragments/test_options.html", {"tests": tests})
+
+
+@router.get("/fragments/python-tests", response_class=HTMLResponse)
+def python_test_options_fragment(
     request: Request, team_id: ParentId, session: Session = Depends(get_session)
 ) -> HTMLResponse:
-    test_names = (
-        active_references(session, "test_name", team_id)
+    tests = (
+        active_references(session, "python_test", team_id)
         if _active_parent(session, team_id, "team")
         else []
     )
-    return templates.TemplateResponse(
-        request, "fragments/test_name_options.html", {"test_names": test_names}
-    )
+    return templates.TemplateResponse(request, "fragments/test_options.html", {"tests": tests})
 
 
 @router.get("/fragments/datasets", response_class=HTMLResponse)
 def dataset_options_fragment(
-    request: Request, test_name_id: ParentId, session: Session = Depends(get_session)
+    request: Request, test_id: ParentId, session: Session = Depends(get_session)
 ) -> HTMLResponse:
     datasets = (
-        active_references(session, "dataset", test_name_id)
-        if _active_parent(session, test_name_id, "test_name")
+        active_references(session, "dataset", test_id)
+        if _active_parent(session, test_id, "python_test")
         else []
     )
     return templates.TemplateResponse(
@@ -272,7 +319,7 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     )
     teams = [i for i in items if i.category == "team"]
     stands = [i for i in items if i.category == "stand"]
-    test_names = [i for i in items if i.category == "test_name"]
+    test_names = [i for i in items if i.category == "python_test"]
     datasets = [i for i in items if i.category == "dataset"]
 
     team_by_id: dict[int | None, ReferenceItem] = {t.id: t for t in teams}
@@ -321,7 +368,7 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
         for ds in dss
     ]
     if orphan_datasets:
-        datasets_by_team.append((_ORPHAN_TEAM, [(_ORPHAN_TEST_NAME, orphan_datasets)]))
+        datasets_by_team.append((_ORPHAN_TEAM, [(_ORPHAN_TEST, orphan_datasets)]))
 
     return templates.TemplateResponse(
         request,

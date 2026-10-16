@@ -45,9 +45,9 @@
         <select
           id="j-test-name-select"
           name="test_name_id"
-          hx-get="/api/references/fragments/test-names"
-          hx-include="#j-team-select"
-          hx-trigger="load, change from:#j-team-select"
+          hx-get="/api/references/fragments/java-tests"
+          hx-include="#j-team-select, #j-part-select"
+          hx-trigger="load, change from:#j-team-select, change from:#j-part-select"
           hx-disabled-elt="unset"
           hx-target="this"
           hx-swap="innerHTML"

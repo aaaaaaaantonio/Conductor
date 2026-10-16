@@ -32,7 +32,7 @@ async def java_launch(
 ) -> HTMLResponse:
     from app.routers.jobs import launch_refused_response
 
-    error = launch_reference_error(session, team_id, stand_id, test_name_id)
+    error = launch_reference_error(session, team_id, stand_id, test_name_id, "java_test", part=part)
     if error:
         return launch_refused_response(request, error)
     test_command = session.get(ReferenceItem, test_name_id).command if test_name_id is not None else None

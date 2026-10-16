@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 
@@ -33,7 +35,7 @@ def test_duplicate_test_name_allowed_across_different_parent_teams(client):
 
     resp_a = client.post(
         "/api/references",
-        json={"category": "test_name", "value": "test_login_flow", "parent_id": team_a["id"]},
+        json={"category": "python_test", "value": "test_login_flow", "parent_id": team_a["id"]},
     )
     assert resp_a.status_code == 201
 
@@ -41,14 +43,14 @@ def test_duplicate_test_name_allowed_across_different_parent_teams(client):
     # duplicate, since test_name is scoped per-team via parent_id.
     resp_b = client.post(
         "/api/references",
-        json={"category": "test_name", "value": "test_login_flow", "parent_id": team_b["id"]},
+        json={"category": "python_test", "value": "test_login_flow", "parent_id": team_b["id"]},
     )
     assert resp_b.status_code == 201
 
     # A true duplicate within the same team is still rejected.
     dup = client.post(
         "/api/references",
-        json={"category": "test_name", "value": "test_login_flow", "parent_id": team_a["id"]},
+        json={"category": "python_test", "value": "test_login_flow", "parent_id": team_a["id"]},
     )
     assert dup.status_code == 409
 
@@ -71,10 +73,10 @@ def test_cascading_stand_and_test_name_fragments(client):
 
     test_name = client.post(
         "/api/references",
-        json={"category": "test_name", "value": "test_login_flow", "parent_id": team["id"]},
+        json={"category": "python_test", "value": "test_login_flow", "parent_id": team["id"]},
     ).json()
 
-    resp = client.get("/api/references/fragments/test-names", params={"team_id": team["id"]})
+    resp = client.get("/api/references/fragments/python-tests", params={"team_id": team["id"]})
     assert "test_login_flow" in resp.text
 
     client.post(
@@ -83,7 +85,7 @@ def test_cascading_stand_and_test_name_fragments(client):
     )
 
     resp = client.get(
-        "/api/references/fragments/datasets", params={"test_name_id": test_name["id"]}
+        "/api/references/fragments/datasets", params={"test_id": test_name["id"]}
     )
     assert "dataset_default" in resp.text
 
@@ -138,8 +140,8 @@ def test_duplicate_reference_error_is_in_russian(client):
     assert resp.json()["detail"] == "Такое значение уже есть в этой категории"
 
 
-def _create(client, category, value, parent_id=None):
-    payload = {"category": category, "value": value, "parent_id": parent_id}
+def _create(client, category, value, parent_id=None, **extra):
+    payload = {"category": category, "value": value, "parent_id": parent_id, **extra}
     resp = client.post("/api/references", json=payload)
     assert resp.status_code == 201
     return resp.json()
@@ -196,14 +198,14 @@ def test_move_renumbers_legacy_rows_that_all_share_sort_order_zero(client, sessi
 def test_move_only_reorders_siblings_with_the_same_parent(client):
     team_a = _create(client, "team", "A")
     team_b = _create(client, "team", "B")
-    a1 = _create(client, "test_name", "a1", team_a["id"])
-    _create(client, "test_name", "a2", team_a["id"])
-    _create(client, "test_name", "b1", team_b["id"])
-    _create(client, "test_name", "b2", team_b["id"])
+    a1 = _create(client, "python_test", "a1", team_a["id"])
+    _create(client, "python_test", "a2", team_a["id"])
+    _create(client, "python_test", "b1", team_b["id"])
+    _create(client, "python_test", "b2", team_b["id"])
 
     client.post(f"/api/references/{a1['id']}/move", json={"direction": "down"})
-    assert _values(client, "test_name", team_a["id"]) == ["a2", "a1"]
-    assert _values(client, "test_name", team_b["id"]) == ["b1", "b2"]
+    assert _values(client, "python_test", team_a["id"]) == ["a2", "a1"]
+    assert _values(client, "python_test", team_b["id"]) == ["b1", "b2"]
 
 
 def test_move_ignores_soft_deleted_siblings(client):
@@ -236,25 +238,25 @@ def test_move_with_unknown_direction_returns_422(client):
 def test_reparenting_puts_reference_at_end_of_new_group(client):
     team_a = _create(client, "team", "A")
     team_b = _create(client, "team", "B")
-    moved = _create(client, "test_name", "x", team_a["id"])
-    _create(client, "test_name", "b1", team_b["id"])
-    _create(client, "test_name", "b2", team_b["id"])
+    moved = _create(client, "python_test", "x", team_a["id"])
+    _create(client, "python_test", "b1", team_b["id"])
+    _create(client, "python_test", "b2", team_b["id"])
 
     resp = client.put(
         f"/api/references/{moved['id']}", json={"value": "a-first", "parent_id": team_b["id"]}
     )
     assert resp.status_code == 200
-    assert _values(client, "test_name", team_b["id"]) == ["b1", "b2", "a-first"]
+    assert _values(client, "python_test", team_b["id"]) == ["b1", "b2", "a-first"]
 
 
 def test_dataset_fragment_follows_custom_order(client):
     team = _create(client, "team", "T")
-    test = _create(client, "test_name", "t", team["id"])
+    test = _create(client, "python_test", "t", team["id"])
     _create(client, "dataset", "ds-1", test["id"])
     ds2 = _create(client, "dataset", "ds-2", test["id"])
     client.post(f"/api/references/{ds2['id']}/move", json={"direction": "up"})
 
-    html = client.get("/api/references/fragments/datasets", params={"test_name_id": test["id"]}).text
+    html = client.get("/api/references/fragments/datasets", params={"test_id": test["id"]}).text
     assert html.index("ds-2") < html.index("ds-1")
 
 
@@ -263,9 +265,9 @@ def test_references_page_follows_custom_order(client):
     team_z = _create(client, "team", "Zeta")
     _create(client, "stand", "s-alpha")
     s_zeta = _create(client, "stand", "s-zeta")
-    _create(client, "test_name", "t-alpha", team_a["id"])
-    _create(client, "test_name", "t-zeta", team_z["id"])
-    t1 = _create(client, "test_name", "a-1", team_a["id"])
+    _create(client, "python_test", "t-alpha", team_a["id"])
+    _create(client, "python_test", "t-zeta", team_z["id"])
+    t1 = _create(client, "python_test", "a-1", team_a["id"])
     _create(client, "dataset", "d-1", t1["id"])
     d2 = _create(client, "dataset", "d-2", t1["id"])
 
@@ -322,7 +324,7 @@ def test_update_rejects_blank_value(client):
 
 
 def test_item_cannot_be_its_own_parent(client):
-    test_name = _create(client, "test_name", "t", _create(client, "team", "QA")["id"])
+    test_name = _create(client, "python_test", "t", _create(client, "team", "QA")["id"])
     resp = client.put(
         f"/api/references/{test_name['id']}", json={"value": "t", "parent_id": test_name["id"]}
     )
@@ -332,8 +334,8 @@ def test_item_cannot_be_its_own_parent(client):
 @pytest.mark.parametrize(
     ("category", "parent_category"),
     [
-        ("test_name", "stand"),
-        ("test_name", None),
+        ("python_test", "stand"),
+        ("python_test", None),
         ("dataset", "team"),
         ("team", "team"),
         ("stand", "team"),
@@ -346,13 +348,13 @@ def test_parent_must_match_category(client, category, parent_category):
 
 
 def test_parent_must_exist(client):
-    resp = client.post("/api/references", json={"category": "test_name", "value": "x", "parent_id": 999})
+    resp = client.post("/api/references", json={"category": "python_test", "value": "x", "parent_id": 999})
     assert resp.status_code == 422
 
 
 def test_soft_deleted_parent_still_accepted_for_orphans(client):
     team = _create(client, "team", "QA")
-    test_name = _create(client, "test_name", "t", team["id"])
+    test_name = _create(client, "python_test", "t", team["id"])
     client.delete(f"/api/references/{team['id']}")
 
     resp = client.put(
@@ -379,8 +381,8 @@ def test_sqlite_enforces_foreign_keys(session):
     "path, param",
     [
         ("/api/references/fragments/stands", "team_id"),
-        ("/api/references/fragments/test-names", "team_id"),
-        ("/api/references/fragments/datasets", "test_name_id"),
+        ("/api/references/fragments/python-tests", "team_id"),
+        ("/api/references/fragments/datasets", "test_id"),
     ],
 )
 def test_option_fragments_accept_empty_parent(client, path, param):
@@ -392,14 +394,14 @@ def test_option_fragments_accept_empty_parent(client, path, param):
 
 
 def test_option_fragments_still_reject_garbage_parent(client):
-    assert client.get("/api/references/fragments/datasets", params={"test_name_id": "abc"}).status_code == 422
+    assert client.get("/api/references/fragments/datasets", params={"test_id": "abc"}).status_code == 422
 
 
 @pytest.mark.parametrize(
     "path",
     [
         "/api/references/fragments/stands",
-        "/api/references/fragments/test-names",
+        "/api/references/fragments/python-tests",
         "/api/references/fragments/datasets",
     ],
 )
@@ -418,10 +420,146 @@ def test_option_fragments_ignore_deleted_parent(client):
     team = client.post("/api/references", json={"category": "team", "value": "QA-Backend"}).json()
     client.post(
         "/api/references",
-        json={"category": "test_name", "value": "test_login_flow", "parent_id": team["id"]},
+        json={"category": "python_test", "value": "test_login_flow", "parent_id": team["id"]},
     )
     assert client.delete(f"/api/references/{team['id']}").status_code == 204
 
-    resp = client.get("/api/references/fragments/test-names", params={"team_id": team["id"]})
+    resp = client.get("/api/references/fragments/python-tests", params={"team_id": team["id"]})
     assert resp.status_code == 200
     assert "test_login_flow" not in resp.text
+
+
+# ---------- java/python tests: part and params ----------
+
+
+def test_java_test_requires_part(client):
+    team = _create(client, "team", "QA")
+    resp = client.post("/api/references", json={"category": "java_test", "value": "t", "parent_id": team["id"]})
+    assert resp.status_code == 422
+    assert "часть" in resp.json()["detail"]
+
+
+def test_part_forbidden_outside_java_tests(client):
+    team = _create(client, "team", "QA")
+    resp = client.post(
+        "/api/references",
+        json={"category": "python_test", "value": "t", "parent_id": team["id"], "part": "front"},
+    )
+    assert resp.status_code == 422
+
+
+def test_params_forbidden_outside_tests(client):
+    resp = client.post(
+        "/api/references",
+        json={"category": "team", "value": "X", "params": [{"key": "a", "type": "flag"}]},
+    )
+    assert resp.status_code == 422
+
+
+def test_params_saved_normalized(client):
+    team = _create(client, "team", "QA")
+    item = _create(
+        client, "java_test", "t", team["id"], part="back",
+        params=[{"key": " retry ", "type": "bool", "value": "true"}, {"key": "headless", "type": "flag", "value": ""}],
+    )
+    assert item["part"] == "back"
+    assert json.loads(item["params_json"]) == [
+        {"key": "retry", "type": "bool", "value": "true"},
+        {"key": "headless", "type": "flag", "value": None},
+    ]
+
+
+def test_bad_param_rejected_with_russian_message(client):
+    team = _create(client, "team", "QA")
+    resp = client.post(
+        "/api/references",
+        json={"category": "java_test", "value": "t", "parent_id": team["id"], "part": "front",
+              "params": [{"key": "Team_ID", "type": "flag"}]},
+    )
+    assert resp.status_code == 422
+    assert "служебным" in resp.json()["detail"]
+
+
+def test_python_test_param_cannot_abbreviate_vm_flag(client):
+    team = _create(client, "team", "QA")
+    resp = client.post(
+        "/api/references",
+        json={"category": "python_test", "value": "t", "parent_id": team["id"],
+              "params": [{"key": "tea", "type": "flag"}]},
+    )
+    assert resp.status_code == 422
+    assert "--team" in resp.json()["detail"]
+
+
+def test_same_name_allowed_for_front_and_back_but_not_twice_in_one_part(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "login", team["id"], part="front")
+    _create(client, "java_test", "login", team["id"], part="back")
+    dup = client.post(
+        "/api/references",
+        json={"category": "java_test", "value": "login", "parent_id": team["id"], "part": "front"},
+    )
+    assert dup.status_code == 409
+
+
+def test_update_moving_java_test_into_part_with_same_name_is_409(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "login", team["id"], part="front")
+    back = _create(client, "java_test", "login", team["id"], part="back")
+    resp = client.put(
+        f"/api/references/{back['id']}", json={"value": "login", "parent_id": team["id"], "part": "front"}
+    )
+    assert resp.status_code == 409
+
+
+def test_update_replaces_params_and_empty_list_clears_them(client):
+    team = _create(client, "team", "QA")
+    item = _create(client, "python_test", "t", team["id"], params=[{"key": "a", "type": "flag"}])
+    resp = client.put(
+        f"/api/references/{item['id']}",
+        json={"value": "t", "parent_id": team["id"], "params": [{"key": "env", "type": "text", "value": "s"}]},
+    )
+    assert json.loads(resp.json()["params_json"]) == [{"key": "env", "type": "text", "value": "s"}]
+    resp = client.put(f"/api/references/{item['id']}", json={"value": "t", "parent_id": team["id"], "params": []})
+    assert resp.json()["params_json"] is None
+
+
+def test_java_tests_fragment_filters_by_part(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "j-front", team["id"], part="front")
+    _create(client, "java_test", "j-back", team["id"], part="back")
+    _create(client, "python_test", "p-test", team["id"])
+    html = client.get("/api/references/fragments/java-tests", params={"team_id": team["id"], "part": "front"}).text
+    assert "j-front" in html
+    assert "j-back" not in html
+    assert "p-test" not in html
+
+
+def test_python_tests_fragment_lists_only_python_tests(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "j-front", team["id"], part="front")
+    _create(client, "python_test", "p-test", team["id"])
+    html = client.get("/api/references/fragments/python-tests", params={"team_id": team["id"]}).text
+    assert "p-test" in html
+    assert "j-front" not in html
+
+
+def test_java_tests_fragment_part_param_is_required_and_blank_means_empty(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "j", team["id"], part="front")
+    path = "/api/references/fragments/java-tests"
+    assert client.get(path, params={"team_id": team["id"]}).status_code == 422
+    resp = client.get(path, params={"team_id": team["id"], "part": ""})
+    assert resp.status_code == 200
+    assert "<option" not in resp.text
+
+
+def test_old_test_names_fragment_is_gone(client):
+    assert client.get("/api/references/fragments/test-names", params={"team_id": ""}).status_code == 404
+
+
+def test_dataset_parent_must_be_python_test(client):
+    team = _create(client, "team", "QA")
+    jt = _create(client, "java_test", "j", team["id"], part="front")
+    resp = client.post("/api/references", json={"category": "dataset", "value": "d", "parent_id": jt["id"]})
+    assert resp.status_code == 422

@@ -206,7 +206,7 @@ def test_java_launch_rejects_test_name_of_another_team(client, session):
     other = client.post("/api/references", json={"category": "team", "value": "Other"}).json()
     stand = client.post("/api/references", json={"category": "stand", "value": "s"}).json()
     test = client.post(
-        "/api/references", json={"category": "test_name", "value": "t", "parent_id": other["id"]}
+        "/api/references", json={"category": "java_test", "value": "t", "parent_id": other["id"], "part": "back"}
     ).json()
 
     resp = client.post(
