@@ -162,7 +162,7 @@ def test_launch_forms_opt_into_remembering_values(client):
 
 def test_python_datasets_reload_when_test_name_changes(client):
     html = client.get("/python").text
-    assert 'hx-trigger="htmx:afterSwap from:#test-name-select, change from:#test-name-select"' in html
+    assert 'hx-trigger="htmx:afterSwap from:#p-test-select, change from:#p-test-select"' in html
 
 
 def test_app_js_restores_remembered_form_values(client):

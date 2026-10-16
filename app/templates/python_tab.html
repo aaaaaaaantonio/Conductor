@@ -41,9 +41,9 @@
         </div>
       </fieldset>
       <div class="field">
-        <label for="test-name-select">Имя теста</label>
+        <label for="p-test-select">Имя теста</label>
         <select
-          id="test-name-select"
+          id="p-test-select"
           name="test_id"
           hx-get="/api/references/fragments/python-tests"
           hx-include="#team-select"
@@ -59,8 +59,8 @@
           id="dataset-select"
           name="dataset_id"
           hx-get="/api/references/fragments/datasets"
-          hx-include="#test-name-select"
-          hx-trigger="htmx:afterSwap from:#test-name-select, change from:#test-name-select"
+          hx-include="#p-test-select"
+          hx-trigger="htmx:afterSwap from:#p-test-select, change from:#p-test-select"
           hx-disabled-elt="unset"
           hx-target="this"
           hx-swap="innerHTML"

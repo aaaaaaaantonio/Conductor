@@ -13,8 +13,15 @@ from app.execution.command_builder import FieldSpec, build_command
 from app.execution.jenkins_launch import restart_python
 from app.execution.runner import start_local_job_with_own_session
 from app.models.jobs import Job
-from app.models.reference import ReferenceItem, SelectedId, active_references, launch_reference_error
+from app.models.reference import (
+    ReferenceItem,
+    SelectedId,
+    active_references,
+    item_params,
+    launch_reference_error,
+)
 from app.templating import templates
+from app.test_params import jenkins_values, vm_args
 
 router = APIRouter(tags=["launch-python"])
 
@@ -22,7 +29,7 @@ PYTHON_FIELDS = [
     FieldSpec(label="Team", flag_name="--team", type="number", required=True),
     FieldSpec(label="Stand", flag_name="--stand", type="number", required=True),
     FieldSpec(label="Regression type", flag_name="--regression-type", type="text", required=True),
-    FieldSpec(label="Test name", flag_name="--test-name", type="number", required=False),
+    FieldSpec(label="Test name", flag_name="--test-name", type="text", required=False),
     FieldSpec(label="Dataset", flag_name="--dataset", type="number", required=False),
 ]
 
@@ -57,7 +64,9 @@ async def python_launch(
         if vm_env is None:
             return launch_refused_response(request, VM_TOKENS_MISSING, auth_link=True)
 
-    test_command = session.get(ReferenceItem, test_id).command if test_id is not None else None
+    test = session.get(ReferenceItem, test_id) if test_id is not None else None
+    test_command = test.command if test is not None else None
+    test_params = item_params(test) if test is not None else []
 
     params = {
         "team_id": team_id,
@@ -70,7 +79,11 @@ async def python_launch(
     # Jenkins jobs start as "triggering" rather than "queued" so they never
     # show up in the active job list (queued/running) — only VM runs do.
     status = "triggering" if execution_mode == "jenkins" else "queued"
-    job = Job(source="python", status=status, params_json=json.dumps(params))
+    job = Job(
+        source="python",
+        status=status,
+        params_json=json.dumps({**params, "test_params": [p.model_dump() for p in test_params]}),
+    )
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -83,12 +96,13 @@ async def python_launch(
             "--test-name": test_command if test_command else test_id,
             "--dataset": dataset_id,
         }
-        command = build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values)
+        command = build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values) + vm_args(test_params)
         background_tasks.add_task(
             start_local_job_with_own_session, job.id, command, config.JOB_LOG_DIR, env=vm_env
         )
     elif execution_mode == "jenkins":
-        jenkins_params = {k: v for k, v in params.items() if v is not None}
+        # Same rule as Java: unset service params dropped, valueless test params bare.
+        jenkins_params = {k: v for k, v in params.items() if v is not None} | jenkins_values(test_params)
 
         from app.routers.jobs import jenkins_launch_response
 

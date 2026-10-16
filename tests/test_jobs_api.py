@@ -59,19 +59,19 @@ def test_python_tab_job_list_div_has_load_and_sse_trigger(client):
 
 
 def test_python_tab_cascading_selects_carry_corrected_triggers(client):
-    # Regression for finding 4: stand-select and test-name-select must fire
+    # Regression for finding 4: stand-select and p-test-select must fire
     # on initial `load` (not just on a later team change), and dataset-select
-    # must cascade off test-name-select's swap event rather than a `change`
+    # must cascade off p-test-select's swap event rather than a `change`
     # event that a programmatic option-swap never fires.
     resp = client.get("/python")
     assert resp.status_code == 200
     assert 'id="stand-select"' in resp.text
     assert 'hx-trigger="load, change from:#team-select"' in resp.text
-    assert 'id="test-name-select"' in resp.text
+    assert 'id="p-test-select"' in resp.text
     assert 'id="dataset-select"' in resp.text
-    assert 'hx-trigger="htmx:afterSwap from:#test-name-select, change from:#test-name-select"' in resp.text
+    assert 'hx-trigger="htmx:afterSwap from:#p-test-select, change from:#p-test-select"' in resp.text
     assert 'hx-trigger="change from:#team-select"' not in resp.text
-    assert 'hx-trigger="change from:#test-name-select"' not in resp.text
+    assert 'hx-trigger="change from:#p-test-select"' not in resp.text
 
 
 def test_python_launch_response_has_no_oob_wrapper(client, session):
@@ -801,3 +801,69 @@ def test_log_fragment_numbers_lines_like_the_live_log(client, session, tmp_path)
     text = client.get(f"/jobs/{job.id}/fragments/log").text
 
     assert '<span class="ln">2</span>done' in text
+
+
+_PY_PARAMS = [
+    {"key": "retry", "type": "bool", "value": "false"},
+    {"key": "headless", "type": "flag", "value": None},
+]
+
+
+def _python_refs_with_params(client):
+    team = client.post("/api/references", json={"category": "team", "value": "QA"}).json()["id"]
+    stand = client.post("/api/references", json={"category": "stand", "value": "s"}).json()["id"]
+    test = client.post(
+        "/api/references",
+        json={"category": "python_test", "value": "t", "parent_id": team, "command": "smoke", "params": _PY_PARAMS},
+    ).json()["id"]
+    return {"team_id": team, "stand_id": stand, "regression_type": "regression", "test_id": test}
+
+
+def test_python_vm_launch_appends_test_params_after_standard_args(client, session, monkeypatch):
+    import app.routers.launch_python as launch_python
+
+    calls = []
+
+    async def fake_start(job_id, command, log_dir, env=None):
+        calls.append(command)
+
+    monkeypatch.setattr(launch_python, "start_local_job_with_own_session", fake_start)
+
+    resp = client.post("/python/launch", data={**_python_refs_with_params(client), "execution_mode": "vm"})
+
+    assert resp.status_code == 200
+    command = calls[0]
+    assert "--test-name=smoke" in command
+    assert command[-2:] == ["--retry=false", "--headless"]
+    job = session.exec(select(Job)).one()
+    assert json.loads(job.params_json)["test_params"] == _PY_PARAMS
+
+
+def test_python_jenkins_launch_sends_test_params(client, session, monkeypatch):
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/5/"})
+
+    mock_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr("app.execution.jenkins_launch.httpx.AsyncClient", lambda *a, **kw: mock_client)
+
+    client.post("/python/launch", data={**_python_refs_with_params(client), "execution_mode": "jenkins"})
+
+    assert requests[0].url.query.decode().endswith("&test_command=smoke&retry=false&headless")
+    job = session.exec(select(Job)).one()
+    assert json.loads(job.params_json)["test_params"] == _PY_PARAMS
+
+
+def test_python_launch_refuses_java_test(client, session):
+    form = _python_refs_with_params(client)
+    java = client.post(
+        "/api/references",
+        json={"category": "java_test", "value": "j", "parent_id": form["team_id"], "part": "front"},
+    ).json()["id"]
+
+    resp = client.post("/python/launch", data={**form, "test_id": java, "execution_mode": "jenkins"})
+
+    assert "Тест не найден у этой команды" in resp.text
+    assert session.exec(select(Job)).all() == []
