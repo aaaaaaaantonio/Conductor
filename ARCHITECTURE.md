@@ -1,4 +1,4 @@
-# Conductor — карта проекта
+# TestDepot — карта проекта
 
 Документ для быстрого входа (в том числе для LLM): что где лежит, как устроены
 процессы и какие решения приняты намеренно. Запуск и переменные окружения — в
@@ -187,7 +187,7 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 - `/credentials` POST: проверка (`credential_checks`) → cookie. Jenkins проверяется всегда
   (`GET /me/api/json`), Allure (обмен API-токена на JWT) и Zephyr (`GET /rest/api/2/myself`, Bearer) —
   только если поле заполнено и задан базовый URL.
-- Cookie `conductor_creds`: Fernet (ключ = SHA-256 от `CONDUCTOR_SECRET_KEY`; пусто → случайный на процесс),
+- Cookie `testdepot_creds`: Fernet (ключ = SHA-256 от `TESTDEPOT_SECRET_KEY`; пусто → случайный на процесс),
   HttpOnly, SameSite=Strict. На сервере токены не хранятся и не логируются.
 - `credentials_middleware` на каждом запросе расшифровывает cookie в `request.state.credentials`,
   продлевает её (скользящее окно: 12 ч или 30 дней с «Запомнить», не чаще `CREDS_REFRESH_AFTER`),
@@ -212,18 +212,18 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 
 ### 11. Уведомления (`static/notify.js`)
 
-- Браузер помнит id запусков, начатых **в нём** (`localStorage conductor:my-jobs`, общий для вкладок;
+- Браузер помнит id запусков, начатых **в нём** (`localStorage testdepot:my-jobs`, общий для вкладок;
   первая вкладка, увидевшая финал, «забирает» id — уведомление одно).
 - На `job-status` с `success`/`failed` своего запуска, если вкладка не в фокусе: цифра на favicon
   (canvas) и в title, синтезированный звук (Web Audio), системное уведомление (только HTTPS/localhost).
-  `cancelled` — без уведомления. Настройки в `localStorage conductor:notify`.
+  `cancelled` — без уведомления. Настройки в `localStorage testdepot:notify`.
 
 ## Фронтенд: соглашения
 
 - `hx-boost` в сайдбаре: навигация заменяет содержимое `<body>` и **заново выполняет скрипты**.
   Поэтому `app.js`/`notify.js` защищены флагом `window.__…Init`, а страничные скрипты вешают
   делегированные обработчики через `window.bindPersistent` (base.html), а не `addEventListener`.
-- `form[data-remember="<key>"]` — значения формы запоминаются в `localStorage conductor:form:<key>`
+- `form[data-remember="<key>"]` — значения формы запоминаются в `localStorage testdepot:form:<key>`
   и восстанавливаются, в том числе в каскадных селектах после подгрузки их вариантов.
 - Отказы запуска и ответы Jenkins приходят с `HX-Retarget: #job-log-body` + `HX-Reswap: afterbegin`.
 - Ошибки JSON-API в формах — `formError.fromResponse/show/clear` (переводит ошибки валидации FastAPI).
@@ -231,7 +231,7 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 ## Безопасность (намеренные решения)
 
 - **Аутентификации нет и не планируется** — инструмент внутренней сети; не предлагать.
-- CSRF: `origin_check_middleware` (Origin ≠ Host или ≠ `CONDUCTOR_ALLOWED_ORIGINS` → 403;
+- CSRF: `origin_check_middleware` (Origin ≠ Host или ≠ `TESTDEPOT_ALLOWED_ORIGINS` → 403;
   без Origin — пропуск, для curl/скриптов) + SameSite=Strict cookie.
 - Команды запускаются без shell (argv), значения как `--flag=value`.
 - Токены: только в зашифрованной cookie и в env подпроцесса; в логах маскируются.

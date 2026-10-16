@@ -1,7 +1,7 @@
 [project]
-name = "conductor"
+name = "testdepot"
 version = "0.1.0"
-description = "Conductor: web panel for launching autotests"
+description = "TestDepot: web panel for launching autotests"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi",

@@ -38,6 +38,6 @@ def test_get_is_never_checked(client):
 
 
 def test_allowed_origins_setting(client, monkeypatch):
-    monkeypatch.setattr("app.config.CONDUCTOR_ALLOWED_ORIGINS", ["https://conductor.company.ru"])
-    assert _post(client, {"Origin": "https://conductor.company.ru"}).status_code == 303
+    monkeypatch.setattr("app.config.TESTDEPOT_ALLOWED_ORIGINS", ["https://testdepot.company.ru"])
+    assert _post(client, {"Origin": "https://testdepot.company.ru"}).status_code == 303
     assert _post(client, {"Origin": "http://testserver"}).status_code == 403

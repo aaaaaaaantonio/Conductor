@@ -50,7 +50,7 @@ def test_tampered_or_garbage_cookie_is_rejected():
 def test_cookie_from_another_key_is_rejected(monkeypatch):
     value = encode(_creds(), now=NOW)
     monkeypatch.setattr(credentials, "_fernet_instance", None)
-    monkeypatch.setattr(credentials, "CONDUCTOR_SECRET_KEY", "another-key")
+    monkeypatch.setattr(credentials, "TESTDEPOT_SECRET_KEY", "another-key")
     assert decode(value, now=NOW) is None
 
 

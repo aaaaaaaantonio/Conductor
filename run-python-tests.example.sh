@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stand-in for the real VM-mode runner: prints what Conductor passed and exits 0.
+# Stand-in for the real VM-mode runner: prints what TestDepot passed and exits 0.
 # Copy it to run-python-tests.sh (or point PYTHON_TEST_RUNNER_PATH at it) to try VM mode.
 set -euo pipefail
 

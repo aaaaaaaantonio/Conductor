@@ -13,7 +13,7 @@
   // over htmx after the team is known, so a saved value is re-applied each
   // time a select's options arrive; setting it fires "change" so the next
   // select in the chain reloads for it.
-  var REMEMBER_PREFIX = "conductor:form:";
+  var REMEMBER_PREFIX = "testdepot:form:";
   // Set while a restored value's "change" is dispatched: the form is then
   // mid-cascade (dependent selects not reloaded yet) and must not overwrite
   // the saved values with that half-updated state.
@@ -215,7 +215,7 @@
     var s = seconds % 60;
     return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(s).padStart(2, "0");
   }
-  window.conductorFormatDuration = formatDuration;
+  window.testDepotFormatDuration = formatDuration;
 
   // Active jobs' durations tick from their start (data-started, UTC ISO).
   setInterval(function () {

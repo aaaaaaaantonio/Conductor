@@ -29,10 +29,10 @@ def test_default_paths_are_anchored_to_project_not_cwd(reload_config, monkeypatc
 
 
 def test_env_overrides_database_url_and_log_dir(reload_config, monkeypatch, tmp_path):
-    monkeypatch.setenv("DATABASE_URL", "sqlite:////srv/conductor/conductor.db")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:////srv/testdepot/testdepot.db")
     monkeypatch.setenv("JOB_LOG_DIR", str(tmp_path / "logs"))
     reload_config()
-    assert config.DATABASE_URL == "sqlite:////srv/conductor/conductor.db"
+    assert config.DATABASE_URL == "sqlite:////srv/testdepot/testdepot.db"
     assert config.JOB_LOG_DIR == tmp_path / "logs"
 
 

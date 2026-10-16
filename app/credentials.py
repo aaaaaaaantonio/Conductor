@@ -1,7 +1,7 @@
 """Per-user Jenkins/Allure tokens kept in an encrypted HttpOnly cookie.
 
 The browser holds the only copy: the cookie is a Fernet token (AES + HMAC)
-under CONDUCTOR_SECRET_KEY, so JS can't read it and a copied cookie reveals
+under TESTDEPOT_SECRET_KEY, so JS can't read it and a copied cookie reveals
 nothing. The server decrypts it per request, uses the tokens in memory and
 never stores or logs them.
 
@@ -24,15 +24,15 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import Request, Response
 
 from app.config import (
-    CONDUCTOR_SECRET_KEY,
     COOKIE_SECURE,
     CREDS_MAX_LIFETIME,
     CREDS_REFRESH_AFTER,
     CREDS_REMEMBER_IDLE_TTL,
     CREDS_SESSION_IDLE_TTL,
+    TESTDEPOT_SECRET_KEY,
 )
 
-COOKIE_NAME = "conductor_creds"
+COOKIE_NAME = "testdepot_creds"
 VM_TOKENS_MISSING = "Для запуска на VM нужны токены Allure TestOps и Jira Zephyr — введите их на странице «Доступы»"
 # Tolerated clock skew for a cookie stamped slightly in the future.
 _CLOCK_SKEW = 60
@@ -78,10 +78,10 @@ class Decoded:
 def _fernet() -> Fernet:
     global _fernet_instance
     if _fernet_instance is None:
-        secret = CONDUCTOR_SECRET_KEY
+        secret = TESTDEPOT_SECRET_KEY
         if not secret:
             logger.warning(
-                "CONDUCTOR_SECRET_KEY is not set: using a random key, saved "
+                "TESTDEPOT_SECRET_KEY is not set: using a random key, saved "
                 "Jenkins/Allure tokens will be lost on restart"
             )
             secret = os.urandom(32).hex()

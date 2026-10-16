@@ -368,7 +368,7 @@ async def test_final_status_event_carries_source_and_duration(tmp_path, session)
 @pytest.mark.asyncio
 async def test_server_shutdown_kills_job_and_marks_it_failed(tmp_path: Path, session: Session):
     # Shutdown cancels the runner task. The test runs in its own process
-    # group, so without an explicit kill it outlives Conductor.
+    # group, so without an explicit kill it outlives TestDepot.
     import os
 
     from app.execution import runner

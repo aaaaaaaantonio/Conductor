@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{% endblock %} · Conductor</title>
+  <title>{% block title %}{% endblock %} · TestDepot</title>
   <link rel="icon" id="favicon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
@@ -35,7 +35,7 @@
      app.js appends log lines and notifies about finished jobs. #}
   <div class="shell" hx-ext="sse" sse-connect="/jobs/stream">
     <aside class="sb" hx-boost="true">
-      <a href="/python" class="sb-brand"><span class="sb-logo" aria-hidden="true">▶</span><span class="sb-label">Conductor</span></a>
+      <a href="/python" class="sb-brand"><span class="sb-logo" aria-hidden="true">▶</span><span class="sb-label">TestDepot</span></a>
       <nav class="sb-nav">
         <div class="sb-group">Запуск</div>
         {{ nav_item("/java", "Java", '<path d="M8 3h8M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/>') }}
@@ -70,7 +70,7 @@
       <strong>Уведомления</strong>
       <button type="button" class="notify-close" data-notify-close aria-label="Закрыть">×</button>
     </div>
-    <p class="notify-intro">Когда твой запуск на VM закончится, а вкладка Conductor в фоне. Настройки хранятся в этом браузере.</p>
+    <p class="notify-intro">Когда твой запуск на VM закончится, а вкладка TestDepot в фоне. Настройки хранятся в этом браузере.</p>
     <div class="field">
       <label for="notify-sound">Звук</label>
       <div class="notify-sound-row">

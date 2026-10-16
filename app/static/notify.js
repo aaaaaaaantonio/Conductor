@@ -1,13 +1,13 @@
 (function () {
   // Tells the user that a VM job they launched from this browser finished
-  // while Conductor was in the background: a red counter on the tab icon,
+  // while TestDepot was in the background: a red counter on the tab icon,
   // a sound and, if allowed, a system notification. Settings live in this
   // browser only. Like app.js, hx-boost re-runs this script on every nav.
-  if (window.__conductorNotifyInit) return;
-  window.__conductorNotifyInit = true;
+  if (window.__testDepotNotifyInit) return;
+  window.__testDepotNotifyInit = true;
 
-  var SETTINGS_KEY = "conductor:notify";
-  var MINE_KEY = "conductor:my-jobs";
+  var SETTINGS_KEY = "testdepot:notify";
+  var MINE_KEY = "testdepot:my-jobs";
   var DEFAULTS = { sound: "twotone", badge: true, os: false, errorsOnly: false };
   var STATUS_TEXT = { success: "Успешно", failed: "Ошибка" };
   var SOURCE_TEXT = { python: "Python", agent_test: "Тестирование агентов" };
@@ -28,7 +28,7 @@
   }
 
   // ---------- jobs launched from this browser ----------
-  // Shared by all Conductor tabs via localStorage; the first tab to see a
+  // Shared by all TestDepot tabs via localStorage; the first tab to see a
   // job finish takes it off the list, so several open tabs notify once.
   var memoryMine = [];
 
@@ -228,14 +228,14 @@
   function systemNotify(event) {
     if (!settings.os || !("Notification" in window) || Notification.permission !== "granted") return;
     var parts = [SOURCE_TEXT[event.source] || event.source];
-    if (event.duration !== null && event.duration !== undefined) parts.push(window.conductorFormatDuration(event.duration));
+    if (event.duration !== null && event.duration !== undefined) parts.push(window.testDepotFormatDuration(event.duration));
     var title = event.test
-      ? "🔔 Проверка уведомления Conductor"
+      ? "🔔 Проверка уведомления TestDepot"
       : (event.status === "success" ? "✅" : "❌") + " Запуск #" + event.job_id + " — " + STATUS_TEXT[event.status];
     try {
       var n = new Notification(title, {
         body: parts.join(" · "),
-        tag: "conductor-job-" + event.job_id,
+        tag: "testdepot-job-" + event.job_id,
         icon: "/static/favicon.svg",
       });
       n.onclick = function () {
@@ -263,7 +263,7 @@
     if (!claim(Number(event.job_id))) return;
     // A job the user stopped themselves needs no reminder.
     if (event.status === "cancelled") return;
-    // Looking at Conductor right now: the log panel already shows it.
+    // Looking at TestDepot right now: the log panel already shows it.
     if (!document.hidden && document.hasFocus()) return;
     notify(event);
   });
@@ -281,7 +281,7 @@
     if (!("Notification" in window)) return "Этот браузер не поддерживает уведомления.";
     if (!window.isSecureContext) {
       return "Браузер разрешает уведомления только по HTTPS или на localhost. " +
-        "Открой Conductor через SSH-туннель (localhost) или поставь HTTPS.";
+        "Открой TestDepot через SSH-туннель (localhost) или поставь HTTPS.";
     }
     if (Notification.permission === "denied") {
       return "Уведомления запрещены для этого сайта — разреши их в настройках сайта (значок слева от адреса).";

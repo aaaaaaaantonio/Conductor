@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 # Project root. Default file locations hang off it, so they don't depend on
-# the directory Conductor is started from.
+# the directory TestDepot is started from.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -38,11 +38,11 @@ JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "")
 # (app/credentials.py). Any string works as the key; changing it signs
 # everyone out. Empty means a random per-process key (tokens are lost on
 # restart) — fine for development only.
-CONDUCTOR_SECRET_KEY = os.environ.get("CONDUCTOR_SECRET_KEY", "")
-# Set to true once Conductor is served over HTTPS.
+TESTDEPOT_SECRET_KEY = os.environ.get("TESTDEPOT_SECRET_KEY", "")
+# Set to true once TestDepot is served over HTTPS.
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
 # Sliding idle windows, in seconds: every request re-issues the cookie, so
-# tokens expire only after this long without using Conductor.
+# tokens expire only after this long without using TestDepot.
 CREDS_SESSION_IDLE_TTL = _int_env("CREDS_SESSION_IDLE_TTL", 12 * 3600)
 CREDS_REMEMBER_IDLE_TTL = _int_env("CREDS_REMEMBER_IDLE_TTL", 30 * 86400)
 # Re-issue the cookie at most this often, not on every single request.
@@ -52,10 +52,10 @@ CREDS_REFRESH_AFTER = _int_env("CREDS_REFRESH_AFTER", 60, minimum=0)
 CREDS_MAX_LIFETIME = _int_env("CREDS_MAX_LIFETIME", 10 * 365 * 86400)
 
 # Browser-side Origin values accepted on POST/PUT/PATCH/DELETE, comma
-# separated (e.g. "https://conductor.company.ru"). Empty: the request's own
+# separated (e.g. "https://testdepot.company.ru"). Empty: the request's own
 # Host. Needed only behind a proxy that rewrites Host.
-CONDUCTOR_ALLOWED_ORIGINS = [
-    o.strip().rstrip("/") for o in os.environ.get("CONDUCTOR_ALLOWED_ORIGINS", "").split(",") if o.strip()
+TESTDEPOT_ALLOWED_ORIGINS = [
+    o.strip().rstrip("/") for o in os.environ.get("TESTDEPOT_ALLOWED_ORIGINS", "").split(",") if o.strip()
 ]
 
 JOB_LOG_DIR = Path(os.environ.get("JOB_LOG_DIR", BASE_DIR / "job_logs"))

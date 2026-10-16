@@ -136,7 +136,7 @@ async def _run_local_job(
                 job.status = "success" if return_code == 0 else "failed"
     except asyncio.CancelledError:
         # Server shutdown. The process has its own group, so it would
-        # outlive Conductor and keep running unseen; stop it with us.
+        # outlive TestDepot and keep running unseen; stop it with us.
         job.status = "failed"
         if process is not None:
             _kill(process)

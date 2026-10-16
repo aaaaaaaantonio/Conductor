@@ -16,8 +16,8 @@ UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 def _allowed(origin: str, request: Request) -> bool:
-    if config.CONDUCTOR_ALLOWED_ORIGINS:
-        return origin.rstrip("/") in config.CONDUCTOR_ALLOWED_ORIGINS
+    if config.TESTDEPOT_ALLOWED_ORIGINS:
+        return origin.rstrip("/") in config.TESTDEPOT_ALLOWED_ORIGINS
     # Compare hosts only: behind a TLS-terminating proxy the browser says
     # https while the app sees http.
     return origin != "null" and urlsplit(origin).netloc == request.headers.get("host")

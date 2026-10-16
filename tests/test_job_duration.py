@@ -24,7 +24,7 @@ def test_naive_timestamps_from_sqlite_are_utc():
 
 
 def test_jenkins_runs_have_no_duration():
-    # Conductor doesn't track Jenkins builds, so it can't know how long they took.
+    # TestDepot doesn't track Jenkins builds, so it can't know how long they took.
     for status in ("triggering", "triggered", "failed"):
         job = Job(source="java", status=status, params_json="{}", created_at=START, updated_at=START)
         assert duration_seconds(job) is None

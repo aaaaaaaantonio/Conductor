@@ -6,5 +6,5 @@ job_logs/
 .venv/
 *.log
 .coverage
-conductor.pid
+testdepot.pid
 .env
