@@ -271,10 +271,11 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .ref-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 8px; border-radius:6px; font-size:.85rem}
 .ref-row:hover{background:var(--page)}
 .ref-row .ref-meta{color:var(--ink-faint); font-size:.75rem}
+.ref-row .ref-badge{font-size:.68rem; font-weight:600; padding:1px 6px; border-radius:4px; background:var(--accent-soft); color:var(--ink-soft)}
 .ref-row .ref-meta code{font-family:var(--mono); font-size:.72rem}
 .ref-row .ref-actions{display:flex; gap:2px; flex-shrink:0}
-.ref-row .ref-edit, .ref-row .ref-del{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.85rem; padding:2px 8px; border-radius:4px}
-.ref-row .ref-edit:hover{background:var(--page); color:var(--ink)}
+.ref-row .ref-edit, .ref-row .test-edit, .ref-row .ref-del{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.85rem; padding:2px 8px; border-radius:4px}
+.ref-row .ref-edit:hover, .ref-row .test-edit:hover{background:var(--page); color:var(--ink)}
 .ref-row .ref-del:hover{background:var(--status-fail-bg); color:var(--status-fail)}
 .ref-row .ref-move{border:none; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:.7rem; padding:2px 6px; border-radius:4px}
 .ref-row .ref-move:hover:not(:disabled){background:var(--page); color:var(--ink)}
@@ -340,6 +341,7 @@ fieldset{border:0; margin:0; padding:0; min-width:0}
 .def-wide{flex:1 1 120px}
 .def-check{display:flex; align-items:center; gap:4px; white-space:nowrap; font-size:.8rem; color:var(--ink-soft)}
 .def-row .def-remove{width:auto; margin-left:auto; padding:6px 10px}
+.def-input[hidden]{display:none}
 .modal-foot{display:flex; justify-content:flex-end; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line)}
 
 .modal-test-path{font-family:var(--mono); font-size:.85rem; color:var(--ink-soft); margin-bottom:16px; word-break:break-all}

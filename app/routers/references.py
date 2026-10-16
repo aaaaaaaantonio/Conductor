@@ -15,6 +15,7 @@ from app.models.reference import (
     TeamStandLink,
     active_references,
     blank_to_none,
+    item_params,
     next_sort_order,
     sibling_references,
 )
@@ -308,6 +309,21 @@ def dataset_options_fragment(
     )
 
 
+def _group_tests_by_team(
+    tests: list[ReferenceItem], teams: list[ReferenceItem]
+) -> list[tuple[ReferenceItem, list[ReferenceItem]]]:
+    """Tests under their team, in team order. A test whose team was
+    soft-deleted still has a real parent_id that matches no active team: it
+    goes under an "orphan" placeholder instead of vanishing."""
+    tests_by_team_id = group_by(tests, lambda t: t.parent_id)
+    grouped = [(team, tests_by_team_id[team.id]) for team in teams if team.id in tests_by_team_id]
+    team_ids = {team.id for team in teams}
+    orphans = [t for parent_id, ts in tests_by_team_id.items() if parent_id not in team_ids for t in ts]
+    if orphans:
+        grouped.append((_ORPHAN_TEAM, orphans))
+    return grouped
+
+
 @page_router.get("/references", response_class=HTMLResponse)
 def references_page(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
     items = list(
@@ -319,7 +335,8 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     )
     teams = [i for i in items if i.category == "team"]
     stands = [i for i in items if i.category == "stand"]
-    test_names = [i for i in items if i.category == "python_test"]
+    java_tests = [i for i in items if i.category == "java_test"]
+    python_tests = [i for i in items if i.category == "python_test"]
     datasets = [i for i in items if i.category == "dataset"]
 
     team_by_id: dict[int | None, ReferenceItem] = {t.id: t for t in teams}
@@ -331,34 +348,18 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
         if team is not None and link.stand_id is not None:
             stand_teams[link.stand_id].append(team)
 
-    # Group by parent id; a test_name/dataset whose parent was soft-deleted
-    # still has a real parent_id here, it just no longer matches any `team`/
-    # `test_name` in the active lists above — that case is handled below by
-    # bucketing it under an "orphan" placeholder instead of dropping it.
-    tests_by_team_id = group_by(test_names, lambda tn: tn.parent_id)
-    tests_by_team: list[tuple[ReferenceItem, list[ReferenceItem]]] = []
-    matched_team_ids: set[int | None] = set()
-    for team in teams:
-        if team.id in tests_by_team_id:
-            tests_by_team.append((team, tests_by_team_id[team.id]))
-            matched_team_ids.add(team.id)
-    orphan_tests = [
-        tn
-        for parent_id, tns in tests_by_team_id.items()
-        if parent_id not in matched_team_ids
-        for tn in tns
-    ]
-    if orphan_tests:
-        tests_by_team.append((_ORPHAN_TEAM, orphan_tests))
+    python_tests_by_team = _group_tests_by_team(python_tests, teams)
 
+    # Datasets belong to Python tests; one whose test was soft-deleted goes
+    # under an "orphan" placeholder, like orphaned tests above.
     datasets_by_test_id = group_by(datasets, lambda ds: ds.parent_id)
     datasets_by_team: list[tuple[ReferenceItem, list[tuple[ReferenceItem, list[ReferenceItem]]]]] = []
     matched_test_ids: set[int | None] = set()
-    for team, tests in tests_by_team:
+    for team, tests in python_tests_by_team:
         team_tests = [
-            (tn, datasets_by_test_id[tn.id]) for tn in tests if tn.id in datasets_by_test_id
+            (t, datasets_by_test_id[t.id]) for t in tests if t.id in datasets_by_test_id
         ]
-        matched_test_ids.update(tn.id for tn, _ in team_tests)
+        matched_test_ids.update(t.id for t, _ in team_tests)
         if team_tests:
             datasets_by_team.append((team, team_tests))
     orphan_datasets = [
@@ -370,15 +371,19 @@ def references_page(request: Request, session: Session = Depends(get_session)) -
     if orphan_datasets:
         datasets_by_team.append((_ORPHAN_TEAM, [(_ORPHAN_TEST, orphan_datasets)]))
 
+    param_counts = {t.id: len(item_params(t)) for t in java_tests + python_tests}
+
     return templates.TemplateResponse(
         request,
         "references.html",
         {
             "teams": teams,
             "stands": stands,
-            "test_names": test_names,
             "stand_teams": stand_teams,
-            "tests_by_team": tests_by_team,
+            "java_tests_by_team": _group_tests_by_team(java_tests, teams),
+            "python_tests_by_team": python_tests_by_team,
+            "python_tests": python_tests,
             "datasets_by_team": datasets_by_team,
+            "param_counts": param_counts,
         },
     )

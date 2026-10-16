@@ -6,6 +6,44 @@
 <button type="button" class="ref-move" data-move-url="/api/references/{{ item.id }}/move" data-direction="up"{% if loop.first %} disabled{% endif %} title="Выше">▲</button>
 <button type="button" class="ref-move" data-move-url="/api/references/{{ item.id }}/move" data-direction="down"{% if loop.last %} disabled{% endif %} title="Ниже">▼</button>
 {%- endmacro %}
+{% macro test_tile(lang, title, category, groups, add_label, empty_text) -%}
+  <details class="panel ref-panel" id="panel-{{ lang }}-tests" open>
+    <summary>{{ title }}</summary>
+    <div class="panel-body">
+      <div class="ref-list">
+        {% for team, tests in groups %}
+          <details class="team-tests-group" id="{{ lang }}-team-tests-{{ team.id }}">
+            <summary class="ref-row">
+              <span class="ref-label">{{ team.value }} <span class="ref-meta">&middot; {{ tests | length }}</span></span>
+            </summary>
+            <div class="team-tests-list">
+              {% for t in tests %}
+                <div class="ref-row" data-id="{{ t.id }}" data-category="{{ t.category }}" data-value="{{ t.value }}" data-parent="{{ t.parent_id or '' }}" data-command="{{ t.command or '' }}" data-part="{{ t.part or '' }}" data-params="{{ t.params_json or '[]' }}">
+                  <span class="ref-label">{{ t.value }}
+                    {%- if t.part %} <span class="ref-badge">{{ "Фронт" if t.part == "front" else "Бэк" }}</span>{% endif %}
+                    {%- if t.command %} <span class="ref-meta">&middot; <code>{{ t.command }}</code></span>{% endif %}
+                    {%- if param_counts.get(t.id) %} <span class="ref-meta">&middot; {{ param_counts[t.id] }} парам.</span>{% endif %}</span>
+                  <span class="ref-actions">
+                    {{ move_buttons(t, loop) }}
+                    <button type="button" class="test-edit" title="Изменить">✎</button>
+                    <button type="button" class="ref-del" data-delete-url="/api/references/{{ t.id }}">✕</button>
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
+          </details>
+        {% else %}
+          <div class="ref-empty">{{ empty_text }}</div>
+        {% endfor %}
+      </div>
+      {% if teams %}
+        <button type="button" class="btn-primary modal-trigger" data-modal="test-modal" data-category="{{ category }}" style="width:auto">{{ add_label }}</button>
+      {% else %}
+        <div class="ref-empty">Сначала добавьте команду</div>
+      {% endif %}
+    </div>
+  </details>
+{%- endmacro %}
 <div class="layout refs">
 
   <details class="panel ref-panel" id="panel-teams" open>
@@ -66,55 +104,9 @@
     </div>
   </details>
 
-  <details class="panel ref-panel" id="panel-test-names" open>
-    <summary>Имена тестов</summary>
-    <div class="panel-body">
-      <div class="ref-list">
-        {% for team, tests in tests_by_team %}
-          <details class="team-tests-group" id="team-tests-{{ team.id }}">
-            <summary class="ref-row">
-              <span class="ref-label">{{ team.value }} <span class="ref-meta">&middot; {{ tests | length }}</span></span>
-            </summary>
-            <div class="team-tests-list">
-              {% for tn in tests %}
-                <div class="ref-row" data-id="{{ tn.id }}" data-value="{{ tn.value }}" data-parent="{{ tn.parent_id or '' }}" data-command="{{ tn.command or '' }}" data-command-label="Команда запуска">
-                  <span class="ref-label">{{ tn.value }}{% if tn.command %} <span class="ref-meta">&middot; <code>{{ tn.command }}</code></span>{% endif %}</span>
-                  <span class="ref-actions">
-                    {{ move_buttons(tn, loop) }}
-                    <button type="button" class="ref-edit">✎</button>
-                    <button type="button" class="ref-del" data-delete-url="/api/references/{{ tn.id }}">✕</button>
-                  </span>
-                </div>
-              {% endfor %}
-            </div>
-          </details>
-        {% else %}
-          <div class="ref-empty">Пока нет ни одного имени теста</div>
-        {% endfor %}
-      </div>
-      {% if teams %}
-        <form class="ref-form" data-create-category="python_test" data-parent-select="#new-test-name-team">
-          <div class="field">
-            <label for="new-test-name-team">Команда</label>
-            <select id="new-test-name-team" required>
-              {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="field">
-            <label for="new-test-name-value">Имя теста</label>
-            <input id="new-test-name-value" name="value" type="text" required>
-          </div>
-          <div class="field">
-            <label for="new-test-name-command">Команда запуска</label>
-            <input id="new-test-name-command" name="command" type="text" placeholder="напр. mvn test -Dtest=Smoke">
-          </div>
-          <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
-        </form>
-      {% else %}
-        <div class="ref-empty">Сначала добавьте команду</div>
-      {% endif %}
-    </div>
-  </details>
+  {{ test_tile("java", "Java-тесты", "java_test", java_tests_by_team, "+ Добавить Java-тест", "Пока нет ни одного Java-теста") }}
+
+  {{ test_tile("python", "Python-тесты", "python_test", python_tests_by_team, "+ Добавить Python-тест", "Пока нет ни одного Python-теста") }}
 
   <details class="panel ref-panel" id="panel-datasets" open>
     <summary>Датасеты</summary>
@@ -151,12 +143,12 @@
           <div class="ref-empty">Пока нет ни одного датасета</div>
         {% endfor %}
       </div>
-      {% if test_names %}
-        <form class="ref-form" data-create-category="dataset" data-parent-select="#new-dataset-test-name">
+      {% if python_tests %}
+        <form class="ref-form" data-create-category="dataset" data-parent-select="#new-dataset-test">
           <div class="field">
-            <label for="new-dataset-test-name">Тест</label>
-            <select id="new-dataset-test-name" required>
-              {% for tn in test_names %}<option value="{{ tn.id }}">{{ tn.value }}</option>{% endfor %}
+            <label for="new-dataset-test">Python-тест</label>
+            <select id="new-dataset-test" required>
+              {% for t in python_tests %}<option value="{{ t.id }}">{{ t.value }}</option>{% endfor %}
             </select>
           </div>
           <div class="field">
@@ -170,7 +162,7 @@
           <button type="submit" class="btn-primary" style="width:auto">Добавить</button>
         </form>
       {% else %}
-        <div class="ref-empty">Сначала добавьте имя теста</div>
+        <div class="ref-empty">Сначала добавьте Python-тест</div>
       {% endif %}
     </div>
   </details>
@@ -204,6 +196,62 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="test-modal">
+  <div class="modal-dialog" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <span class="modal-eyebrow" id="test-modal-title">Новый тест</span>
+      <button class="modal-close" type="button" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="test-modal-team">Команда</label>
+        <select id="test-modal-team">
+          {% for team in teams %}<option value="{{ team.id }}">{{ team.value }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="test-modal-value">Имя теста</label>
+        <input id="test-modal-value" type="text" required>
+      </div>
+      <div class="field">
+        <label for="test-modal-command">Команда запуска</label>
+        <input id="test-modal-command" type="text" placeholder="напр. mvn test -Dtest=Smoke">
+      </div>
+      <fieldset class="field seg-field" id="test-modal-part">
+        <legend>Часть</legend>
+        <div class="seg">
+          <label><input type="radio" name="test-modal-part" value="front" checked><span>Фронт</span></label>
+          <label><input type="radio" name="test-modal-part" value="back"><span>Бэк</span></label>
+        </div>
+      </fieldset>
+      <div class="section-label">Параметры</div>
+      <div id="test-modal-params"></div>
+      <button type="button" class="btn-secondary" id="test-modal-add-param" style="width:auto">+ параметр</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary modal-cancel" type="button">Отмена</button>
+      <button class="btn-primary" type="button" id="test-modal-submit">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<template id="test-param-row">
+  <div class="def-row param-row">
+    <input type="text" class="def-input def-wide tp-key" placeholder="ключ">
+    <select class="def-input tp-type">
+      <option value="text">Текст</option>
+      <option value="bool">Да-нет</option>
+      <option value="flag">Без значения</option>
+    </select>
+    <input type="text" class="def-input def-wide tp-text" placeholder="значение">
+    <select class="def-input tp-bool" hidden>
+      <option value="true">true</option>
+      <option value="false">false</option>
+    </select>
+    <button type="button" class="btn-secondary def-remove tp-remove">✕</button>
+  </div>
+</template>
+
 <script>
 (function () {
   var OPEN_STATE_KEY = "refs-open-panels";
@@ -232,7 +280,7 @@
     });
   })();
 
-  // --- create forms (team / test_name / dataset) ---
+  // --- create forms (team / dataset) ---
   document.querySelectorAll("form[data-create-category]").forEach(function (form) {
     formError.bind(form);
     form.addEventListener("submit", function (event) {
@@ -324,13 +372,120 @@
     });
   }
 
+  // --- java/python test modal (create + edit) ---
+  // Looked up per call for the same reason as the stand modal.
+  function getTestModal() { return document.getElementById("test-modal"); }
+  function getTestModalBody() { return document.querySelector("#test-modal .modal-body"); }
+  if (getTestModalBody()) formError.bind(getTestModalBody());
+
+  function showParamValue(row) {
+    var type = row.querySelector(".tp-type").value;
+    row.querySelector(".tp-text").hidden = type !== "text";
+    row.querySelector(".tp-bool").hidden = type !== "bool";
+  }
+
+  function addParamRow(param) {
+    var row = document.getElementById("test-param-row").content.firstElementChild.cloneNode(true);
+    if (param) {
+      row.querySelector(".tp-key").value = param.key;
+      row.querySelector(".tp-type").value = param.type;
+      if (param.type === "text") row.querySelector(".tp-text").value = param.value || "";
+      if (param.type === "bool") row.querySelector(".tp-bool").value = param.value;
+    }
+    showParamValue(row);
+    document.getElementById("test-modal-params").appendChild(row);
+    return row;
+  }
+
+  // row: the .ref-row of the test being edited, or null to create one.
+  function openTestModal(category, row) {
+    var modal = getTestModal();
+    var isJava = category === "java_test";
+    modal.dataset.category = category;
+    modal.dataset.itemId = row ? row.dataset.id : "";
+    document.getElementById("test-modal-title").textContent =
+      (row ? "Изменение " : "Новый ") + (isJava ? (row ? "Java-теста" : "Java-тест") : (row ? "Python-теста" : "Python-тест"));
+    document.getElementById("test-modal-part").hidden = !isJava;
+    var team = document.getElementById("test-modal-team");
+    if (row && row.dataset.parent) team.value = row.dataset.parent;
+    document.getElementById("test-modal-value").value = row ? row.dataset.value : "";
+    document.getElementById("test-modal-command").value = row ? row.dataset.command : "";
+    var part = row && row.dataset.part ? row.dataset.part : "front";
+    modal.querySelector('input[name="test-modal-part"][value="' + part + '"]').checked = true;
+    document.getElementById("test-modal-params").innerHTML = "";
+    (row ? JSON.parse(row.dataset.params || "[]") : []).forEach(addParamRow);
+    formError.clear(getTestModalBody());
+    modal.classList.add("open");
+    document.getElementById("test-modal-value").focus();
+  }
+
+  function closeTestModal() {
+    var modal = getTestModal();
+    if (modal) modal.classList.remove("open");
+  }
+
+  function collectParams() {
+    var params = [];
+    document.querySelectorAll("#test-modal-params .param-row").forEach(function (row) {
+      var key = row.querySelector(".tp-key").value.trim();
+      if (!key) return;
+      var type = row.querySelector(".tp-type").value;
+      var value = null;
+      if (type === "text") value = row.querySelector(".tp-text").value;
+      if (type === "bool") value = row.querySelector(".tp-bool").value;
+      params.push({ key: key, type: type, value: value });
+    });
+    return params;
+  }
+
+  function submitTestModal() {
+    var modal = getTestModal();
+    var body = getTestModalBody();
+    var valueInput = document.getElementById("test-modal-value");
+    if (!valueInput.value.trim()) { valueInput.focus(); return; }
+    formError.clear(body);
+    var category = modal.dataset.category;
+    var payload = {
+      value: valueInput.value,
+      parent_id: Number(document.getElementById("test-modal-team").value),
+      command: document.getElementById("test-modal-command").value || null,
+      part: category === "java_test" ? modal.querySelector('input[name="test-modal-part"]:checked').value : null,
+      params: collectParams(),
+    };
+    var itemId = modal.dataset.itemId;
+    if (!itemId) payload.category = category;
+    fetch(itemId ? "/api/references/" + itemId : "/api/references", {
+      method: itemId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(function (resp) {
+      if (resp.ok) { reload(); return; }
+      formError.fromResponse(resp, "Не удалось сохранить тест").then(function (message) {
+        formError.show(body, message);
+      });
+    }).catch(function (err) {
+      formError.show(body, "Не удалось сохранить тест: " + err);
+    });
+  }
+
+  var paramsBox = document.getElementById("test-modal-params");
+  if (paramsBox) {
+    paramsBox.addEventListener("change", function (e) {
+      if (!e.target.classList.contains("tp-type")) return;
+      var row = e.target.closest(".param-row");
+      row.querySelector(".tp-text").value = "";
+      row.querySelector(".tp-bool").value = "true";
+      showParamValue(row);
+    });
+  }
+
   // Delegated listeners below go on `document`/`document.body`, which — unlike
   // the page content above — persist across hx-boost navigations (a boosted
   // nav swaps <body>'s innerHTML and re-runs this script, but never
   // recreates body/document themselves). bindPersistent (base.html) swaps the
   // listener out rather than stacking a duplicate each render.
   window.bindPersistent(document, "keydown", "__refsKeydownHandler", function (e) {
-    if (e.key === "Escape") closeStandModal();
+    if (e.key === "Escape") { closeStandModal(); closeTestModal(); }
   });
 
   // --- move + delete + inline edit + stand-team unlink + modal, via delegation ---
@@ -357,6 +512,42 @@
 
     if (e.target.closest("#stand-modal-submit")) {
       submitStandModal();
+      return;
+    }
+
+    var testTrigger = e.target.closest('.modal-trigger[data-modal="test-modal"]');
+    if (testTrigger) {
+      e.preventDefault();
+      openTestModal(testTrigger.dataset.category, null);
+      return;
+    }
+
+    var testEdit = e.target.closest(".test-edit");
+    if (testEdit) {
+      e.preventDefault();
+      var testRow = testEdit.closest(".ref-row");
+      openTestModal(testRow.dataset.category, testRow);
+      return;
+    }
+
+    if (e.target === getTestModal() || e.target.closest("#test-modal .modal-close, #test-modal .modal-cancel")) {
+      closeTestModal();
+      return;
+    }
+
+    if (e.target.closest("#test-modal-add-param")) {
+      addParamRow(null).querySelector(".tp-key").focus();
+      return;
+    }
+
+    var paramRemove = e.target.closest(".tp-remove");
+    if (paramRemove) {
+      paramRemove.closest(".param-row").remove();
+      return;
+    }
+
+    if (e.target.closest("#test-modal-submit")) {
+      submitTestModal();
       return;
     }
 

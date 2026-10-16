@@ -279,11 +279,13 @@ def test_references_page_follows_custom_order(client):
     html = client.get("/references").text
     teams_panel = html[html.index('id="panel-teams"'):html.index('id="panel-stands"')]
     assert teams_panel.index("Zeta") < teams_panel.index("Alpha")
-    stands_panel = html[html.index('id="panel-stands"'):html.index('id="panel-test-names"')]
+    stands_panel = html[html.index('id="panel-stands"'):html.index('id="panel-java-tests"')]
     assert stands_panel.index("s-zeta") < stands_panel.index("s-alpha")
-    tests_panel = html[html.index('id="panel-test-names"'):html.index('id="panel-datasets"')]
+    tests_panel = html[html.index('id="panel-python-tests"'):html.index('id="panel-datasets"')]
     # Team groups follow team order; tests inside a team follow their own order.
-    assert tests_panel.index(f'id="team-tests-{team_z["id"]}"') < tests_panel.index(f'id="team-tests-{team_a["id"]}"')
+    assert tests_panel.index(f'id="python-team-tests-{team_z["id"]}"') < tests_panel.index(
+        f'id="python-team-tests-{team_a["id"]}"'
+    )
     assert tests_panel.index("a-1") < tests_panel.index("t-alpha")
     datasets_panel = html[html.index('id="panel-datasets"'):]
     assert datasets_panel.index("d-2") < datasets_panel.index("d-1")
@@ -563,3 +565,48 @@ def test_dataset_parent_must_be_python_test(client):
     jt = _create(client, "java_test", "j", team["id"], part="front")
     resp = client.post("/api/references", json={"category": "dataset", "value": "d", "parent_id": jt["id"]})
     assert resp.status_code == 422
+
+
+# ---------- references page: test tiles and modal ----------
+
+
+def test_references_page_has_two_test_tiles_and_test_modal(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "j-login", team["id"], part="back",
+            params=[{"key": "retry", "type": "bool", "value": "true"}])
+    _create(client, "python_test", "p-login", team["id"])
+
+    html = client.get("/references").text
+
+    assert "Имена тестов" not in html
+    java_panel = html[html.index('id="panel-java-tests"'):html.index('id="panel-python-tests"')]
+    python_panel = html[html.index('id="panel-python-tests"'):html.index('id="panel-datasets"')]
+    assert "Java-тесты" in java_panel and "j-login" in java_panel and "p-login" not in java_panel
+    assert "Python-тесты" in python_panel and "p-login" in python_panel and "j-login" not in python_panel
+    assert "Бэк" in java_panel
+    assert "1 парам." in java_panel
+    assert "+ Добавить Java-тест" in html
+    assert "+ Добавить Python-тест" in html
+    assert 'id="test-modal"' in html
+    for label in ("Текст", "Да-нет", "Без значения"):
+        assert label in html
+
+
+def test_test_rows_use_modal_edit_not_inline(client):
+    team = _create(client, "team", "QA")
+    _create(client, "python_test", "p-login", team["id"])
+    html = client.get("/references").text
+    python_panel = html[html.index('id="panel-python-tests"'):html.index('id="panel-datasets"')]
+    assert 'class="test-edit"' in python_panel
+    assert 'class="ref-edit"' not in python_panel
+
+
+def test_dataset_form_lists_only_python_tests(client):
+    team = _create(client, "team", "QA")
+    _create(client, "java_test", "j-only", team["id"], part="front")
+    _create(client, "python_test", "p-only", team["id"])
+    html = client.get("/references").text
+    select = html[html.index('id="new-dataset-test"'):]
+    select = select[:select.index("</select>")]
+    assert "p-only" in select
+    assert "j-only" not in select
