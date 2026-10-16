@@ -38,16 +38,18 @@ app/
                           забирает и вывод uvicorn); причины 4xx/422 через exception handlers, log_refused()
   templating.py           Jinja2 + фильтры: localtime, duration, highlight, utc_iso; глобал job_duration
   grouping.py             group_by()
+  test_params.py          параметры теста (CustomParam: text/bool/flag), их проверка, служебные имена
+                          Java/Python, jenkins_values()/vm_args()
   models/
     jobs.py               Job, duration_seconds(), as_utc()
-    reference.py          ReferenceItem, TeamStandLink, SelectedId, active_references, launch_reference_error
+    reference.py          ReferenceItem, TeamStandLink, SelectedId, item_params, active_references, launch_reference_error
     agent_testing.py      Agent, AgentTest
   execution/
     runner.py             локальный запуск подпроцесса, стрим лога, отмена, статусы
     broadcaster.py        EventBroadcaster: fan-out событий в SSE-подписчиков
     log_lines.py          read_lines, mask (скрытие токенов), for_display, matches/highlight, ERROR_PATTERN
     command_builder.py    FieldSpec/FlagSpec -> argv
-    jenkins_client.py     trigger_build(): POST buildWithParameters, вернуть Location
+    jenkins_client.py     trigger_build(): POST buildWithParameters (query собирается вручную), вернуть Location
     jenkins_launch.py     ХУКИ для своей логики: launch_in_jenkins, restart_java, restart_python
     credential_checks.py  проверка токенов при сохранении: check_jenkins/allure/zephyr
   routers/
@@ -75,11 +77,17 @@ docs/superpowers/         исходные спецификация и план 
 Схема создаётся `SQLModel.metadata.create_all` при старте. **Миграций нет**:
 новое поле в существующей таблице само не появится.
 
-- **ReferenceItem** — справочники одной таблицей. `category`: `team` | `stand` | `test_name` | `dataset`.
-  Иерархия через `parent_id`: `test_name` → `team`, `dataset` → `test_name`; `team` и `stand` верхнего уровня.
+- **ReferenceItem** — справочники одной таблицей. `category`: `team` | `stand` | `java_test` | `python_test` | `dataset`.
+  Иерархия через `parent_id`: `java_test`/`python_test` → `team`, `dataset` → `python_test`; `team` и `stand`
+  верхнего уровня. Java-тест не виден на вкладке Python и наоборот.
   `is_active=False` — мягкое удаление (строка остаётся, дети становятся «сиротами» и видны на /references
   под заглушками «Без команды»/«Без теста»). `sort_order` — ручной порядок (кнопки вверх/вниз).
-  `command` — у `test_name`: что передать скрипту вместо id (см. Python VM).
+  `command` — у теста: команда запуска (Python VM передаёт её вместо id, Jenkins получает `test_command`).
+  `part` — только у `java_test`: `front` | `back`, входит в проверку дубля (у команды бывают `login`/фронт и
+  `login`/бэк). `params_json` — у тестов: JSON-список `{key, type, value}`, `type` — `text` (непустое значение),
+  `bool` (`true`/`false`) или `flag` (`null`); проверяется при сохранении (`test_params.validate_params`):
+  ключ по `^[A-Za-z0-9_][A-Za-z0-9_.-]*$`, без повторов, не служебное имя языка (без учёта регистра),
+  у Python — не префикс VM-флага (argparse развернул бы `--tea` в `--team`).
 - **TeamStandLink** (team_id, stand_id) — какие стенды доступны команде (многие-ко-многим).
 - **Agent** (team_id, name) и **AgentTest** (agent_id, path, flags_json, fields_json) — конфигурация
   «Тестирования агентов». Удаление настоящее (hard delete), запуски не ссылаются на тесты.
@@ -106,11 +114,13 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 ### 1. Запуск Python на VM (локально)
 
 1. Форма `python_tab.html` → `POST /python/launch` (htmx, ответ в `#job-list`).
-2. `launch_reference_error` проверяет выбор: команда/стенд заданы и активны, тест принадлежит команде,
-   датасет — тесту. Ошибка → `launch_refused_response` (карточка в панели лога через `HX-Retarget`).
+2. `launch_reference_error` проверяет выбор: команда/стенд заданы и активны, тест — `python_test` этой
+   команды, датасет — этого теста. Ошибка → `launch_refused_response` (карточка в панели лога через `HX-Retarget`).
 3. Нужны токены Allure **и** Zephyr из cookie (`creds.vm_env()`), иначе отказ со ссылкой на «Доступы».
 4. Создаётся `Job(status="queued")`, `build_command(PYTHON_TEST_RUNNER_PATH, PYTHON_FIELDS, values)` даёт argv:
-   `--team=<id> --stand=<id> --regression-type=<…> [--test-name=<command или id>] [--dataset=<id>]`.
+   `--team=<id> --stand=<id> --regression-type=<…> [--test-name=<command или id>] [--dataset=<id>]`,
+   затем параметры теста: `--key=value` (text, bool) или голый `--key` (flag).
+   В `Job.params_json` пишется и `test_params`.
 5. `BackgroundTasks` → `start_local_job_with_own_session` (своя DB-сессия: сессия запроса к этому
    моменту закрыта) → `runner.start_local_job`.
 6. Ответ: свежий список активных + заголовок `HX-Trigger: {"job-launched": {"id": …}}` (для notify.js).
@@ -139,7 +149,11 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 
 ### 4. Jenkins (Java и Python в режиме Jenkins, перезапуски)
 
-1. `Job(status="triggering")`, параметры без `None`.
+1. `Job(status="triggering")`. Служебные параметры без `None`, затем параметры теста (`jenkins_values`):
+   `key=value` или голый `key` у `flag`. Java отправляет `team_id, stand_id, regression_type, part, thread_mode,
+   test_name_id, test_command`, Python — `team_id, stand_id, regression_type, test_name_id, test_command,
+   dataset_id`. Java проверяет, что тест — `java_test` этой команды **и части**. `trigger_build` собирает
+   query сам (`quote` ключа и значения): httpx `params=` не умеет голый ключ.
 2. `jobs.jenkins_reply_response`: нет cookie → `failed` + ссылка на «Доступы»; иначе вызывает хук.
 3. Хуки в `execution/jenkins_launch.py` — **место для своей логики**: `launch_in_jenkins`,
    `restart_java`, `restart_python`. Возвращают `LaunchResult(message, url)`; исключение = ошибка,
@@ -198,12 +212,15 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 
 ### 9. Справочники и каскадные селекты
 
-- `/references` — редактирование (inline JS в `references.html`, fetch к `/api/references`).
-- Формы запуска строят цепочку `team → stand, test_name → dataset` через
-  `GET /api/references/fragments/{stands,test-names,datasets}?team_id=|test_name_id=` (возвращают `<option>`).
-  Пустой/пробельный родитель (у верхнего селекта нет вариантов) → пустой список; отсутствующий параметр → 422;
-  удалённый родитель → пусто. Тип `SelectedId` (пустая строка → None) общий с формами запуска.
-- Дубликаты значения запрещены в пределах (категория, родитель) среди активных → 409.
+- `/references` — редактирование (inline JS в `references.html`, fetch к `/api/references`). Две плитки
+  тестов (Java, Python); тест создаётся и правится в модалке `#test-modal` (строки параметров
+  «ключ | тип | значение»), у остальных категорий — inline-редактирование.
+- Формы запуска строят цепочки через `<option>`-фрагменты: Java — `team → stand`, `team + part → test`
+  (`/fragments/java-tests?team_id=&part=`); Python — `team → stand`, `team → test → dataset`
+  (`/fragments/python-tests?team_id=`, `/fragments/datasets?test_id=`).
+  Пустой/пробельный родитель или часть (у верхнего селекта нет вариантов) → пустой список; отсутствующий
+  параметр → 422; удалённый родитель → пусто. Тип `SelectedId` (пустая строка → None) общий с формами запуска.
+- Дубликаты значения запрещены в пределах (категория, родитель, часть) среди активных → 409.
 
 ### 10. История и хранение
 
@@ -256,6 +273,7 @@ Jenkins (Java, Python Jenkins): triggering → triggered | failed
 | Задача | Файлы |
 |---|---|
 | Поменять, что уходит в Jenkins | `execution/jenkins_launch.py` |
+| Поменять правила параметров теста или служебные имена | `test_params.py` |
 | Поменять аргументы Python VM-скрипта | `routers/launch_python.py` (`PYTHON_FIELDS`, `values`) |
 | Новое поле в форме запуска | шаблон вкладки + параметр `Form` в роутере + `launch_reference_error` при ссылке на справочник |
 | Новая категория справочника | `references.py` (`Category`, `PARENT_CATEGORY`), `references.html` |
