@@ -38,3 +38,38 @@ async def test_trigger_build_propagates_http_error():
         with pytest.raises(httpx.HTTPStatusError):
             await trigger_build("https://jenkins", "my-job", {"STAND": "stage-1"}, client)
 
+
+
+@pytest.mark.asyncio
+async def test_trigger_build_sends_bare_keys_and_encodes_values():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/1/"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await trigger_build(
+            "https://jenkins",
+            "job",
+            {"team_id": 1, "env": "a b&c=d", "имя": "тест", "headless": None},
+            client,
+        )
+
+    assert seen[0].query == (
+        b"team_id=1&env=a%20b%26c%3Dd&%D0%B8%D0%BC%D1%8F=%D1%82%D0%B5%D1%81%D1%82&headless"
+    )
+
+
+@pytest.mark.asyncio
+async def test_trigger_build_without_params_has_no_query():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return httpx.Response(201, headers={"Location": "https://jenkins/queue/item/1/"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await trigger_build("https://jenkins", "job", {}, client)
+
+    assert str(seen[0]) == "https://jenkins/job/job/buildWithParameters"
